@@ -1,16 +1,159 @@
-# React + Vite
+# ProjectHub Student Portal
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+A modern university portal built with React, Vite, and Tailwind CSS that connects Students, Instructors, Employers, and Administrators through a unified academic and career management platform.
 
-Currently, two official plugins are available:
+## Overview
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+ProjectHub provides a complete portal experience for managing academic activities, internships, communication, learning resources, and professional networking.
 
-## React Compiler
+The platform includes dedicated dashboards for different user roles while maintaining a consistent design system, responsive layout, and dark mode support.
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+---
 
-## Expanding the ESLint configuration
+## Features
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+### Student Dashboard
+- Personalized dashboard overview
+- Learning Hub
+- Course materials and resources
+- Assignment tracking
+- Course progress indicators
+- Notifications center
+- Messaging system
+- Internship applications
+- Portfolio discovery
+- Favorites and bookmarks
+- Dark mode support
+
+### Instructor Dashboard
+- Student supervision
+- Project management
+- Student evaluations
+- Announcements
+- Analytics and statistics
+- Messaging and communication tools
+
+### Employer Dashboard
+- Internship posting and management
+- Student portfolio browsing
+- Candidate evaluation
+- Messaging with students
+- Company profile management
+
+### Admin Dashboard
+- User management
+- System oversight
+- Platform analytics
+- Administrative controls
+- Reporting tools
+
+---
+
+## Learning Hub
+
+The Learning Hub acts as a centralized academic workspace where students can:
+
+- Access lectures
+- View tutorials
+- Download resources
+- Track assignments
+- View recordings
+- Monitor course progress
+- Browse organized course materials
+
+---
+
+## Technical Features
+
+- React
+- Vite
+- Tailwind CSS
+- Responsive Design
+- Role-Based Dashboards
+- Dark / Light Theme
+- Modern UI Components
+- Search and Filtering
+- Notification System
+- Real-Time Dashboard Experience
+
+---
+
+## Screenshots
+
+### Student Dashboard
+
+_Add screenshot here_
+
+### Learning Hub
+
+_Add screenshot here_
+
+### Instructor Dashboard
+
+_Add screenshot here_
+
+### Employer Dashboard
+
+_Add screenshot here_
+
+### Admin Dashboard
+
+_Add screenshot here_
+
+### Dark Mode
+
+_Add screenshot here_
+
+---
+
+## Project Structure
+
+```text
+src/
+├── components/
+├── pages/
+│   ├── dashboards/
+│   ├── auth/
+│   └── learningHub/
+├── hooks/
+├── services/
+├── assets/
+└── utils/
+```
+
+---
+
+## Installation
+
+```bash
+npm install
+npm run dev
+```
+
+---
+
+## Build
+
+```bash
+npm run build
+```
+
+---
+
+## Future Enhancements
+
+- Advanced Learning Management System (LMS) features
+- Course file organization
+- Calendar integration
+- AI-powered study assistant
+- Attendance tracking
+- Academic analytics
+- Mobile application
+
+---
+
+## Author
+
+**Youssef Mashaly**
+
+Student Portal Showcase Project
