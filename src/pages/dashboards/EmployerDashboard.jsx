@@ -40,7 +40,18 @@ const IC = {
   settings: 'M12 15a3 3 0 100-6 3 3 0 000 6zM19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z',
   users:    'M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75',
   flag:     'M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1zM4 22v-7',
-  download: 'M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3',
+  download:   'M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3',
+  activity:   'M22 12h-4l-3 9L9 3l-3 9H2',
+  trendUp:    'M23 6l-9.5 9.5-5-5L1 18',
+  layers:     'M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5',
+  userCheck:  'M16 21v-2a4 4 0 00-4-4H6a4 4 0 00-4 4v2M9 11a4 4 0 100-8 4 4 0 000 8M16 11l2 2 4-4',
+  bookmark:   'M19 21l-7-5-7 5V5a2 2 0 012-2h10a2 2 0 012 2z',
+  history:    'M12 8v4l3 3M3.05 11a9 9 0 109-8.77',
+  target:     'M12 22a10 10 0 100-20 10 10 0 000 20zM12 18a6 6 0 100-12 6 6 0 000 12zM12 14a2 2 0 100-4 2 2 0 000 4z',
+  filter:     'M22 3H2l8 9.46V19l4 2V12.46L22 3z',
+  gitMerge:   'M18 21a3 3 0 100-6 3 3 0 000 6zM6 3a3 3 0 100 6 3 3 0 000-6zM6 9v12M18 15V9a9 9 0 00-9-9',
+  arrowRight: 'M5 12h14M12 5l7 7-7 7',
+  info:       'M12 22a10 10 0 100-20 10 10 0 000 20zM12 16v-4M12 8h.01',
 }
 
 function Button({ children, onClick, type = 'button', className = '', variant = 'primary', disabled = false }) {
@@ -194,7 +205,18 @@ function EmployerDashboard() {
     return saved ? JSON.parse(saved) : { projects: [projectsData[0]?.id].filter(Boolean), portfolios: [] }
   })
 
-  const [selectedProject, setSelectedProject] = useState(null)
+ const [selectedProject, setSelectedProject] = useState(null)
+  const [savedCandidates, setSavedCandidates] = useState(() => {
+    const s = localStorage.getItem(`emp_saved_candidates_${empId}`)
+    return s ? JSON.parse(s) : []
+  })
+  const [recentCandidates, setRecentCandidates] = useState(() => {
+    const s = localStorage.getItem(`emp_recent_candidates_${empId}`)
+    return s ? JSON.parse(s) : []
+  })
+  const [compareList, setCompareList] = useState([])
+  const [showCompare, setShowCompare] = useState(false)
+  const [pipelineFilter, setPipelineFilter] = useState('all')
 
   const [messages, setMessages] = useState(() => {
     const saved = localStorage.getItem(storageKeys.messages)
@@ -217,7 +239,8 @@ function EmployerDashboard() {
   useEffect(() => localStorage.setItem(storageKeys.favorites, JSON.stringify(favorites)), [favorites, storageKeys.favorites])
   useEffect(() => localStorage.setItem(storageKeys.messages, JSON.stringify(messages)), [messages, storageKeys.messages])
   useEffect(() => localStorage.setItem(storageKeys.notifications, JSON.stringify(userNotifications)), [userNotifications, storageKeys.notifications])
-
+  useEffect(() => localStorage.setItem(`emp_saved_candidates_${empId}`, JSON.stringify(savedCandidates)), [savedCandidates, empId])
+  useEffect(() => localStorage.setItem(`emp_recent_candidates_${empId}`, JSON.stringify(recentCandidates)), [recentCandidates, empId])
   useEffect(() => {
     if (!user) return
     const profile = getEmployerProfile(user.email)
@@ -253,6 +276,32 @@ function EmployerDashboard() {
     document.addEventListener('mousedown', handler)
     return () => document.removeEventListener('mousedown', handler)
   }, [])
+
+  const trackCandidateView = (app, internTitle) => {
+    const entry = { ...app, internTitle, viewedAt: new Date().toLocaleString() }
+    setRecentCandidates(prev => {
+      const filtered = prev.filter(c => !(c.id === app.id && c.internTitle === internTitle))
+      return [entry, ...filtered].slice(0, 20)
+    })
+  }
+
+  const toggleSaveCandidate = (app, internTitle) => {
+    const key = `${app.id}_${internTitle}`
+    setSavedCandidates(prev => {
+      const exists = prev.find(c => `${c.id}_${c.internTitle}` === key)
+      if (exists) return prev.filter(c => `${c.id}_${c.internTitle}` !== key)
+      return [{ ...app, internTitle, savedAt: new Date().toLocaleString() }, ...prev]
+    })
+    showSuccess(savedCandidates.find(c => `${c.id}_${c.internTitle}` === key) ? 'Candidate removed from saved.' : 'Candidate saved!')
+  }
+
+  const toggleCompare = (app) => {
+    setCompareList(prev => {
+      if (prev.find(c => c.id === app.id)) return prev.filter(c => c.id !== app.id)
+      if (prev.length >= 3) { showSuccess('Max 3 candidates for comparison.'); return prev }
+      return [...prev, app]
+    })
+  }
 
   const handleLogout = () => { setTheme(false); logoutUser(); navigate('/') }
 
@@ -449,6 +498,10 @@ function EmployerDashboard() {
     { id: 'profile-details',      label: 'My Profile',         icon: IC.user },
     { id: 'notifications',        label: 'Notifications',      icon: IC.bell,      badge: unreadNotifs },
     { id: 'internships',          label: 'Internships',        icon: IC.briefcase },
+    { id: 'pipeline',             label: 'Candidate Pipeline', icon: IC.gitMerge },
+    { id: 'saved-candidates',     label: 'Saved Candidates',   icon: IC.bookmark },
+    { id: 'recommended-students', label: 'Recommended Students', icon: IC.userCheck },
+    { id: 'analytics',            label: 'Internship Analytics', icon: IC.target },
     { id: 'instructors',          label: 'Find Instructors',   icon: IC.users },
     { id: 'favorite-projects',    label: 'Favorites',          icon: IC.heart },
     { id: 'recommended-projects', label: 'Recommended',        icon: IC.star },
@@ -714,6 +767,60 @@ function EmployerDashboard() {
                     </div>
                   </div>
                 </div>
+
+                {/* ── Quick Actions ── */}
+                <div className={`${cardClass} p-6`}>
+                  <h3 className="font-semibold text-slate-800 dark:text-slate-200 mb-4">Quick Actions</h3>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                    {[
+                      { label:'Post Internship',     icon:IC.plus,      tab:'internships',          color:'bg-blue-50 dark:bg-blue-950/40 hover:bg-blue-100 dark:hover:bg-blue-900/50 text-blue-700 dark:text-blue-300 border-blue-100 dark:border-blue-900' },
+                      { label:'View Applications',   icon:IC.users,     tab:'pipeline',             color:'bg-purple-50 dark:bg-purple-950/40 hover:bg-purple-100 dark:hover:bg-purple-900/50 text-purple-700 dark:text-purple-300 border-purple-100 dark:border-purple-900' },
+                      { label:'Browse Students',     icon:IC.userCheck, tab:'recommended-students', color:'bg-green-50 dark:bg-green-950/40 hover:bg-green-100 dark:hover:bg-green-900/50 text-green-700 dark:text-green-300 border-green-100 dark:border-green-900' },
+                      { label:'Company Profile',     icon:IC.user,      tab:'profile-details',      color:'bg-amber-50 dark:bg-amber-950/40 hover:bg-amber-100 dark:hover:bg-amber-900/50 text-amber-700 dark:text-amber-300 border-amber-100 dark:border-amber-900' },
+                    ].map(a => (
+                      <button key={a.label} onClick={() => setActiveTab(a.tab)}
+                        className={`flex flex-col items-center gap-2 rounded-xl border p-4 text-center transition-all duration-150 hover:-translate-y-0.5 hover:shadow-sm active:scale-95 ${a.color}`}>
+                        <Icon d={a.icon} size={20}/>
+                        <span className="text-xs font-semibold leading-tight">{a.label}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* ── Company Activity Feed ── */}
+                <div className={`${cardClass} p-6`}>
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="font-semibold text-slate-800 dark:text-slate-200 flex items-center gap-2"><Icon d={IC.activity} size={16}/>Company Activity</h3>
+                  </div>
+                  {(() => {
+                    const feed = []
+                    internships.forEach(i => {
+                      feed.push({ type:'internship', label:`Posted internship: "${i.title}"`, sub:i.company, date:i.posted||'2026-04-01', color:'bg-blue-100 dark:bg-blue-900/50 text-blue-600 dark:text-blue-400', icon:IC.briefcase })
+                      i.applicants.forEach(a => {
+                        if (a.status === 'Accepted') feed.push({ type:'accept', label:`Accepted ${a.name}`, sub:i.title, date:i.posted||'2026-04-01', color:'bg-green-100 dark:bg-green-900/50 text-green-600 dark:text-green-400', icon:IC.userCheck })
+                        if (a.status === 'Nominated') feed.push({ type:'nominate', label:`Nominated ${a.name}`, sub:i.title, date:i.posted||'2026-04-01', color:'bg-yellow-100 dark:bg-yellow-900/50 text-yellow-600 dark:text-yellow-400', icon:IC.star })
+                      })
+                    })
+                    messages.slice(-3).forEach(m => {
+                      if (m.mine) feed.push({ type:'message', label:`Sent message to ${m.receiver}`, sub:m.text.slice(0,40)+'…', date:m.date, color:'bg-purple-100 dark:bg-purple-900/50 text-purple-600 dark:text-purple-400', icon:IC.chat })
+                    })
+                    feed.sort((a,b) => new Date(b.date)-new Date(a.date))
+                    if (feed.length === 0) return <p className="text-sm text-slate-400 dark:text-slate-500 text-center py-6">No activity yet.</p>
+                    return (
+                      <ol className="relative border-l border-slate-200 dark:border-slate-700 pl-5 space-y-4">
+                        {feed.slice(0,8).map((ev,i) => (
+                          <li key={i} className="relative">
+                            <span className={`absolute -left-[21px] flex h-4 w-4 items-center justify-center rounded-full ring-2 ring-white dark:ring-slate-800 ${ev.color}`}>
+                              <Icon d={ev.icon} size={9}/>
+                            </span>
+                            <p className="text-sm font-medium text-slate-700 dark:text-slate-300">{ev.label}</p>
+                            <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">{ev.sub} · {ev.date}</p>
+                          </li>
+                        ))}
+                      </ol>
+                    )
+                  })()}
+                </div>
               </div>
             )}
 
@@ -826,6 +933,385 @@ function EmployerDashboard() {
                     <div className="h-[220px] bg-slate-50 dark:bg-slate-700/30 rounded-xl border border-dashed border-slate-200 dark:border-slate-600 flex items-center justify-center text-xs text-slate-400 dark:text-slate-500">Add your location above</div>
                   )}
                 </div>
+              </div>
+            )}
+
+            {/* ── Candidate Pipeline ── */}
+            {activeTab === 'pipeline' && (
+              <div className="space-y-6">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div><h2 className={pageTitleClass}>Candidate Pipeline</h2><p className={pageSubClass}>Track all applicants across internships.</p></div>
+                  <div className="flex gap-2 flex-wrap">
+                    {['all','Nominated','Accepted','Rejected'].map(s => (
+                      <button key={s} onClick={() => setPipelineFilter(s)}
+                        className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-all ${pipelineFilter===s ? 'bg-blue-700 text-white shadow-sm' : 'border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:border-blue-300 dark:hover:border-blue-700'}`}>
+                        {s === 'all' ? 'All' : s}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Pipeline summary */}
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                  {[
+                    { label:'Total Applied',  value: internships.reduce((s,i)=>s+i.applicants.length,0),                            color:'text-blue-700 dark:text-blue-400',   bg:'bg-blue-50 dark:bg-blue-950/40' },
+                    { label:'Nominated',      value: internships.reduce((s,i)=>s+i.applicants.filter(a=>a.status==='Nominated').length,0), color:'text-yellow-700 dark:text-yellow-400',bg:'bg-yellow-50 dark:bg-yellow-950/40' },
+                    { label:'Accepted',       value: internships.reduce((s,i)=>s+i.applicants.filter(a=>a.status==='Accepted').length,0),  color:'text-green-700 dark:text-green-400', bg:'bg-green-50 dark:bg-green-950/40' },
+                    { label:'Rejected',       value: internships.reduce((s,i)=>s+i.applicants.filter(a=>a.status==='Rejected').length,0),  color:'text-red-700 dark:text-red-400',    bg:'bg-red-50 dark:bg-red-950/40' },
+                  ].map(s => (
+                    <div key={s.label} className={`rounded-xl p-4 ${s.bg}`}>
+                      <p className={`text-2xl font-bold ${s.color}`}>{s.value}</p>
+                      <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">{s.label}</p>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Compare bar */}
+                {compareList.length > 0 && (
+                  <div className="rounded-xl border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-950/40 px-4 py-3 flex flex-wrap items-center gap-3">
+                    <span className="text-sm font-semibold text-blue-700 dark:text-blue-300">Comparing ({compareList.length}/3):</span>
+                    {compareList.map(c => <span key={c.id} className="rounded-full bg-blue-100 dark:bg-blue-900/50 px-3 py-0.5 text-xs font-medium text-blue-700 dark:text-blue-300">{c.name}</span>)}
+                    <button onClick={() => setShowCompare(true)} className="ml-auto rounded-lg bg-blue-700 px-3 py-1.5 text-xs font-semibold text-white hover:bg-blue-800 transition-colors">Compare Now</button>
+                    <button onClick={() => setCompareList([])} className="text-xs text-slate-500 dark:text-slate-400 hover:text-red-500 dark:hover:text-red-400">Clear</button>
+                  </div>
+                )}
+
+                {/* Candidate comparison modal */}
+                {showCompare && compareList.length >= 2 && (
+                  <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 dark:bg-black/70 p-4" onClick={e => e.target === e.currentTarget && setShowCompare(false)}>
+                    <div className="w-full max-w-3xl rounded-xl bg-white dark:bg-slate-800 shadow-xl flex flex-col max-h-[90vh]">
+                      <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-700 px-6 py-4 shrink-0">
+                        <h2 className="text-lg font-semibold text-slate-900 dark:text-white">Candidate Comparison</h2>
+                        <button onClick={() => setShowCompare(false)} className="rounded-lg p-1 text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700"><Icon d={IC.x}/></button>
+                      </div>
+                      <div className="overflow-y-auto px-6 py-4">
+                        <div className={`grid gap-4 ${compareList.length === 3 ? 'grid-cols-3' : 'grid-cols-2'}`}>
+                          {compareList.map(c => (
+                            <div key={c.id} className="rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-700/30 p-4 space-y-3">
+                              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-blue-100 dark:bg-blue-900/50 text-lg font-bold text-blue-700 dark:text-blue-300">{c.name[0]}</div>
+                              <div>
+                                <p className="font-semibold text-slate-800 dark:text-slate-200">{c.name}</p>
+                                <p className="text-xs text-slate-500 dark:text-slate-400">{c.email}</p>
+                              </div>
+                              <div className="space-y-2">
+                                <div className="flex items-center justify-between">
+                                  <span className="text-xs text-slate-500 dark:text-slate-400">Contribution Score</span>
+                                  <span className="text-sm font-bold text-blue-700 dark:text-blue-400">{c.contributionScore || 0}</span>
+                                </div>
+                                <div className="h-1.5 w-full rounded-full bg-slate-200 dark:bg-slate-600 overflow-hidden">
+                                  <div className="h-1.5 rounded-full bg-blue-600 transition-all duration-700" style={{width:`${Math.min(c.contributionScore||0, 100)}%`}}/>
+                                </div>
+                                <div className="flex items-center justify-between">
+                                  <span className="text-xs text-slate-500 dark:text-slate-400">Status</span>
+                                  <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium ${c.status==='Accepted'?'bg-green-100 dark:bg-green-900/50 text-green-700 dark:text-green-300':c.status==='Rejected'?'bg-red-100 dark:bg-red-900/50 text-red-700 dark:text-red-300':'bg-yellow-100 dark:bg-yellow-900/50 text-yellow-700 dark:text-yellow-300'}`}>{c.status}</span>
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                        {/* Winner highlight */}
+                        {(() => {
+                          const top = [...compareList].sort((a,b) => (b.contributionScore||0)-(a.contributionScore||0))[0]
+                          return (
+                            <div className="mt-4 rounded-xl border border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-950/40 px-4 py-3 flex items-center gap-3">
+                              <Icon d={IC.userCheck} size={16}/>
+                              <p className="text-sm font-semibold text-green-700 dark:text-green-300">Top candidate: <span className="font-bold">{top.name}</span> with score {top.contributionScore||0}</p>
+                            </div>
+                          )
+                        })()}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Candidates list */}
+                <div className="space-y-3">
+                  {internships.map(i => {
+                    const filtered = pipelineFilter === 'all' ? i.applicants : i.applicants.filter(a => a.status === pipelineFilter)
+                    if (filtered.length === 0) return null
+                    return (
+                      <div key={i.id} className={`${cardClass} p-5`}>
+                        <div className="flex items-center gap-2 mb-4">
+                          <Icon d={IC.briefcase} size={14}/>
+                          <h3 className="font-semibold text-slate-800 dark:text-slate-200">{i.title}</h3>
+                          <span className="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300">{i.company}</span>
+                          <span className="text-xs text-slate-400 dark:text-slate-500 ml-auto">{filtered.length} candidate{filtered.length !== 1 ? 's' : ''}</span>
+                        </div>
+                        <div className="space-y-2">
+                          {filtered.map(app => {
+                            const isSaved = savedCandidates.find(c => c.id === app.id && c.internTitle === i.title)
+                            const inCompare = compareList.find(c => c.id === app.id)
+                            return (
+                              <div key={app.id} onClick={() => trackCandidateView(app, i.title)}
+                                className="flex items-center gap-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-700/30 px-4 py-3 hover:border-blue-200 dark:hover:border-blue-700 transition-all">
+                                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-blue-100 dark:bg-blue-900/50 text-sm font-bold text-blue-700 dark:text-blue-300">{app.name[0]}</div>
+                                <div className="min-w-0 flex-1">
+                                  <p className="font-medium text-slate-800 dark:text-slate-200 text-sm">{app.name}</p>
+                                  <p className="text-xs text-slate-500 dark:text-slate-400">{app.email} · Score: <span className="font-semibold text-blue-600 dark:text-blue-400">{app.contributionScore||0}</span></p>
+                                </div>
+                                <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium shrink-0 ${app.status==='Accepted'?'bg-green-100 dark:bg-green-900/50 text-green-700 dark:text-green-300':app.status==='Rejected'?'bg-red-100 dark:bg-red-900/50 text-red-700 dark:text-red-300':'bg-yellow-100 dark:bg-yellow-900/50 text-yellow-700 dark:text-yellow-300'}`}>{app.status}</span>
+                                <div className="flex items-center gap-1.5 shrink-0">
+                                  <button onClick={e => { e.stopPropagation(); toggleSaveCandidate(app, i.title) }}
+                                    title={isSaved ? 'Remove from saved' : 'Save candidate'}
+                                    className={`flex h-7 w-7 items-center justify-center rounded-lg transition-colors ${isSaved ? 'bg-amber-50 dark:bg-amber-950/40 text-amber-500' : 'text-slate-400 dark:text-slate-500 hover:text-amber-500'}`}>
+                                    <Icon d={IC.bookmark} size={13}/>
+                                  </button>
+                                  <button onClick={e => { e.stopPropagation(); toggleCompare(app) }}
+                                    className={`rounded-lg px-2.5 py-1 text-xs font-medium transition-all border ${inCompare ? 'border-blue-600 bg-blue-600 text-white' : 'border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:border-blue-400 dark:hover:border-blue-500'}`}>
+                                    {inCompare ? 'Comparing' : 'Compare'}
+                                  </button>
+                                  <select value={app.status} onChange={e => { e.stopPropagation(); updateAppStatus(i.id, app.id, e.target.value) }}
+                                    className="rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 px-2 py-1 text-xs focus:border-blue-500 focus:outline-none">
+                                    <option value="Nominated">Nominate</option>
+                                    <option value="Accepted">Accept</option>
+                                    <option value="Rejected">Reject</option>
+                                  </select>
+                                </div>
+                              </div>
+                            )
+                          })}
+                        </div>
+                      </div>
+                    )
+                  })}
+                  {internships.every(i => (pipelineFilter === 'all' ? i.applicants.length === 0 : i.applicants.filter(a => a.status === pipelineFilter).length === 0)) && (
+                    <div className={`${cardClass} py-10 text-center text-sm text-slate-400 dark:text-slate-500`}>No candidates match the selected filter.</div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* ── Saved Candidates ── */}
+            {activeTab === 'saved-candidates' && (
+              <div className="space-y-6">
+                <div><h2 className={pageTitleClass}>Saved Candidates</h2><p className={pageSubClass}>Candidates you've bookmarked for later review.</p></div>
+                {savedCandidates.length === 0 ? (
+                  <div className={`${cardClass} py-16 text-center`}>
+                    <div className="flex h-14 w-14 items-center justify-center rounded-full bg-slate-100 dark:bg-slate-700 mx-auto mb-3"><Icon d={IC.bookmark} size={24}/></div>
+                    <p className="text-slate-500 dark:text-slate-400 font-medium">No saved candidates yet</p>
+                    <p className="text-sm text-slate-400 dark:text-slate-500 mt-1">Bookmark candidates from the Pipeline tab</p>
+                    <button onClick={() => setActiveTab('pipeline')} className="mt-4 inline-flex items-center gap-1.5 rounded-lg bg-blue-700 px-4 py-2 text-sm font-medium text-white hover:bg-blue-800 transition-colors">
+                      <Icon d={IC.arrowRight} size={13}/>Go to Pipeline
+                    </button>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {savedCandidates.map((c, i) => (
+                      <div key={i} className={`${cardClass} p-4 flex items-center gap-4`}>
+                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-blue-100 dark:bg-blue-900/50 text-sm font-bold text-blue-700 dark:text-blue-300">{c.name[0]}</div>
+                        <div className="min-w-0 flex-1">
+                          <p className="font-semibold text-slate-800 dark:text-slate-200">{c.name}</p>
+                          <p className="text-xs text-slate-500 dark:text-slate-400">{c.email} · {c.internTitle}</p>
+                          <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">Saved {c.savedAt}</p>
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0">
+                          <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${c.status==='Accepted'?'bg-green-100 dark:bg-green-900/50 text-green-700 dark:text-green-300':c.status==='Rejected'?'bg-red-100 dark:bg-red-900/50 text-red-700 dark:text-red-300':'bg-yellow-100 dark:bg-yellow-900/50 text-yellow-700 dark:text-yellow-300'}`}>{c.status}</span>
+                          <span className="text-xs font-semibold text-blue-700 dark:text-blue-400">Score: {c.contributionScore||0}</span>
+                          <button onClick={() => setSavedCandidates(prev => prev.filter((_,idx) => idx !== i))}
+                            className="text-slate-400 dark:text-slate-500 hover:text-red-500 dark:hover:text-red-400 transition-colors">
+                            <Icon d={IC.x} size={14}/>
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Recently Viewed */}
+                <div>
+                  <h3 className="font-semibold text-slate-800 dark:text-slate-200 mb-3 flex items-center gap-2"><Icon d={IC.history} size={15}/>Recently Viewed Candidates</h3>
+                  {recentCandidates.length === 0 ? (
+                    <div className={`${cardClass} py-8 text-center text-sm text-slate-400 dark:text-slate-500`}>No recently viewed candidates.</div>
+                  ) : (
+                    <div className="space-y-2">
+                      {recentCandidates.slice(0,6).map((c,i) => (
+                        <div key={i} className={`${cardClass} p-3 flex items-center gap-3`}>
+                          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-slate-100 dark:bg-slate-700 text-sm font-bold text-slate-600 dark:text-slate-300">{c.name[0]}</div>
+                          <div className="min-w-0 flex-1">
+                            <p className="text-sm font-medium text-slate-700 dark:text-slate-300">{c.name}</p>
+                            <p className="text-xs text-slate-400 dark:text-slate-500">{c.internTitle} · Viewed {c.viewedAt}</p>
+                          </div>
+                          <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium ${c.status==='Accepted'?'bg-green-100 dark:bg-green-900/50 text-green-700 dark:text-green-300':c.status==='Rejected'?'bg-red-100 dark:bg-red-900/50 text-red-700 dark:text-red-300':'bg-yellow-100 dark:bg-yellow-900/50 text-yellow-700 dark:text-yellow-300'}`}>{c.status}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* ── Recommended Students ── */}
+            {activeTab === 'recommended-students' && (
+              <div className="space-y-6">
+                <div><h2 className={pageTitleClass}>Recommended Students</h2><p className={pageSubClass}>High-scoring students matching your internship requirements.</p></div>
+                {(() => {
+                  const allApplicants = []
+                  const seen = new Set()
+                  internships.forEach(i => {
+                    i.applicants.forEach(a => {
+                      if (!seen.has(a.id)) {
+                        seen.add(a.id)
+                        allApplicants.push({ ...a, fromInternship: i.title, company: i.company })
+                      }
+                    })
+                  })
+                  const topStudents = allApplicants
+                    .filter(a => a.status !== 'Rejected')
+                    .sort((a,b) => (b.contributionScore||0)-(a.contributionScore||0))
+
+                  if (topStudents.length === 0) return (
+                    <div className={`${cardClass} py-16 text-center`}>
+                      <div className="flex h-14 w-14 items-center justify-center rounded-full bg-slate-100 dark:bg-slate-700 mx-auto mb-3"><Icon d={IC.userCheck} size={24}/></div>
+                      <p className="text-slate-500 dark:text-slate-400 font-medium">No applicants yet</p>
+                      <p className="text-sm text-slate-400 dark:text-slate-500 mt-1">Post internships to start receiving applications</p>
+                    </div>
+                  )
+
+                  return (
+                    <div className="space-y-3">
+                      {topStudents.map((s,i) => {
+                        const isSaved = savedCandidates.find(c => c.id === s.id)
+                        const pct = Math.min(s.contributionScore||0, 100)
+                        return (
+                          <div key={s.id} className={`${cardClass} p-5`}>
+                            <div className="flex items-start gap-4">
+                              <div className="relative shrink-0">
+                                <div className="flex h-12 w-12 items-center justify-center rounded-full bg-blue-100 dark:bg-blue-900/50 text-lg font-bold text-blue-700 dark:text-blue-300">{s.name[0]}</div>
+                                {i === 0 && <span className="absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-amber-400 text-[10px] font-bold text-white">★</span>}
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <div className="flex flex-wrap items-center gap-2 mb-1">
+                                  <p className="font-semibold text-slate-800 dark:text-slate-200">{s.name}</p>
+                                  {i === 0 && <span className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-300">Top Candidate</span>}
+                                  <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${s.status==='Accepted'?'bg-green-100 dark:bg-green-900/50 text-green-700 dark:text-green-300':'bg-yellow-100 dark:bg-yellow-900/50 text-yellow-700 dark:text-yellow-300'}`}>{s.status}</span>
+                                </div>
+                                <p className="text-xs text-slate-500 dark:text-slate-400">{s.email} · Applied to: {s.fromInternship}</p>
+                                <div className="flex items-center gap-3 mt-2">
+                                  <span className="text-xs text-slate-500 dark:text-slate-400">Contribution Score</span>
+                                  <div className="flex-1 h-1.5 rounded-full bg-slate-100 dark:bg-slate-700 overflow-hidden">
+                                    <div className={`h-1.5 rounded-full transition-all duration-700 ${pct >= 85 ? 'bg-green-500' : pct >= 70 ? 'bg-blue-500' : 'bg-amber-500'}`} style={{width:`${pct}%`}}/>
+                                  </div>
+                                  <span className="text-sm font-bold text-blue-700 dark:text-blue-400">{s.contributionScore||0}</span>
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-2 shrink-0">
+                                <button onClick={() => toggleSaveCandidate(s, s.fromInternship)}
+                                  className={`flex h-8 w-8 items-center justify-center rounded-lg transition-colors ${isSaved ? 'bg-amber-50 dark:bg-amber-950/40 text-amber-500' : 'text-slate-400 dark:text-slate-500 hover:text-amber-500 border border-slate-200 dark:border-slate-700'}`}>
+                                  <Icon d={IC.bookmark} size={14}/>
+                                </button>
+                                <button onClick={() => toggleCompare(s)}
+                                  className={`rounded-lg px-2.5 py-1.5 text-xs font-medium border transition-all ${compareList.find(c=>c.id===s.id) ? 'border-blue-600 bg-blue-600 text-white' : 'border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:border-blue-400 dark:hover:border-blue-500'}`}>
+                                  {compareList.find(c=>c.id===s.id) ? 'Comparing' : 'Compare'}
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  )
+                })()}
+              </div>
+            )}
+
+            {/* ── Internship Analytics ── */}
+            {activeTab === 'analytics' && (
+              <div className="space-y-6">
+                <div><h2 className={pageTitleClass}>Internship Analytics</h2><p className={pageSubClass}>Performance metrics and placement data.</p></div>
+
+                {(() => {
+                  const totalApps = internships.reduce((s,i) => s+i.applicants.length, 0)
+                  const totalAccepted = internships.reduce((s,i) => s+i.applicants.filter(a=>a.status==='Accepted').length, 0)
+                  const totalNominated = internships.reduce((s,i) => s+i.applicants.filter(a=>a.status==='Nominated').length, 0)
+                  const totalRejected = internships.reduce((s,i) => s+i.applicants.filter(a=>a.status==='Rejected').length, 0)
+                  const activeInterns = internships.filter(i => i.status === 'Currently Hiring' && !i.isArchived).length
+                  const acceptRate = totalApps > 0 ? Math.round((totalAccepted / totalApps) * 100) : 0
+                  const responseRate = totalApps > 0 ? Math.round(((totalAccepted + totalRejected + totalNominated) / totalApps) * 100) : 0
+
+                  return (
+                    <>
+                      {/* KPI cards */}
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                        {[
+                          { label:'Applications Received', value:totalApps,     color:'text-blue-700 dark:text-blue-400',   bg:'bg-blue-50 dark:bg-blue-950/40',   icon:IC.users },
+                          { label:'Active Internships',    value:activeInterns,  color:'text-green-700 dark:text-green-400', bg:'bg-green-50 dark:bg-green-950/40', icon:IC.briefcase },
+                          { label:'Acceptance Rate',       value:`${acceptRate}%`,  color:'text-purple-700 dark:text-purple-400',bg:'bg-purple-50 dark:bg-purple-950/40',icon:IC.userCheck },
+                          { label:'Response Rate',         value:`${responseRate}%`,color:'text-amber-700 dark:text-amber-400', bg:'bg-amber-50 dark:bg-amber-950/40', icon:IC.activity },
+                        ].map(s => (
+                          <div key={s.label} className={`rounded-xl p-5 shadow-sm ${s.bg} hover:-translate-y-0.5 hover:shadow-md transition-all`}>
+                            <div className="flex items-center justify-between mb-2"><Icon d={s.icon} size={14}/></div>
+                            <p className={`text-3xl font-bold ${s.color}`}>{s.value}</p>
+                            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 leading-tight">{s.label}</p>
+                          </div>
+                        ))}
+                      </div>
+
+                      {/* Per-internship breakdown */}
+                      <div className={`${cardClass} p-6`}>
+                        <h3 className="font-semibold text-slate-800 dark:text-slate-200 mb-4">Per-Internship Breakdown</h3>
+                        {internships.length === 0 ? <p className="text-sm text-slate-400 dark:text-slate-500 text-center py-6">No internships yet.</p> : (
+                          <div className="space-y-4">
+                            {internships.map(i => {
+                              const total = i.applicants.length || 1
+                              const acc = i.applicants.filter(a=>a.status==='Accepted').length
+                              const nom = i.applicants.filter(a=>a.status==='Nominated').length
+                              const rej = i.applicants.filter(a=>a.status==='Rejected').length
+                              const pct = Math.round((acc/total)*100)
+                              return (
+                                <div key={i.id} className="rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-700/30 px-4 py-4">
+                                  <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
+                                    <div>
+                                      <p className="font-semibold text-slate-800 dark:text-slate-200">{i.title}</p>
+                                      <p className="text-xs text-slate-500 dark:text-slate-400">{i.company} · {i.applicants.length} applicant{i.applicants.length!==1?'s':''}</p>
+                                    </div>
+                                    <div className="flex gap-2 flex-wrap">
+                                      <span className="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium bg-yellow-100 dark:bg-yellow-900/50 text-yellow-700 dark:text-yellow-300">{nom} Nominated</span>
+                                      <span className="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium bg-green-100 dark:bg-green-900/50 text-green-700 dark:text-green-300">{acc} Accepted</span>
+                                      <span className="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium bg-red-100 dark:bg-red-900/50 text-red-700 dark:text-red-300">{rej} Rejected</span>
+                                    </div>
+                                  </div>
+                                  <div>
+                                    <div className="flex items-center justify-between mb-1">
+                                      <span className="text-xs text-slate-500 dark:text-slate-400">Acceptance rate</span>
+                                      <span className="text-xs font-bold text-blue-700 dark:text-blue-400">{i.applicants.length > 0 ? pct : 0}%</span>
+                                    </div>
+                                    <div className="h-2 w-full rounded-full bg-slate-200 dark:bg-slate-600 overflow-hidden">
+                                      <div className="h-2 rounded-full bg-blue-600 transition-all duration-700" style={{width:`${i.applicants.length > 0 ? pct : 0}%`}}/>
+                                    </div>
+                                  </div>
+                                </div>
+                              )
+                            })}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Status distribution */}
+                      <div className={`${cardClass} p-6`}>
+                        <h3 className="font-semibold text-slate-800 dark:text-slate-200 mb-4">Overall Status Distribution</h3>
+                        {totalApps === 0 ? <p className="text-sm text-slate-400 dark:text-slate-500 text-center py-6">No applications received yet.</p> : (
+                          <div className="space-y-3">
+                            {[
+                              { label:'Nominated', value:totalNominated, color:'bg-yellow-500', pct:Math.round((totalNominated/totalApps)*100) },
+                              { label:'Accepted',  value:totalAccepted,  color:'bg-green-500',  pct:Math.round((totalAccepted/totalApps)*100) },
+                              { label:'Rejected',  value:totalRejected,  color:'bg-red-500',    pct:Math.round((totalRejected/totalApps)*100) },
+                            ].map(s => (
+                              <div key={s.label}>
+                                <div className="flex items-center justify-between mb-1">
+                                  <span className="text-sm font-medium text-slate-700 dark:text-slate-300">{s.label}</span>
+                                  <span className="text-sm text-slate-500 dark:text-slate-400">{s.value} ({s.pct}%)</span>
+                                </div>
+                                <div className="h-2.5 w-full rounded-full bg-slate-100 dark:bg-slate-700 overflow-hidden">
+                                  <div className={`h-2.5 rounded-full transition-all duration-700 ${s.color}`} style={{width:`${s.pct}%`}}/>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </>
+                  )
+                })()}
               </div>
             )}
 
