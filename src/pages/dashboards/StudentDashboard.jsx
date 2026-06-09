@@ -610,6 +610,460 @@ function PortfolioAnalyticsCard({ user, projects }) {
   )
 }
 
+// ── Dashboard Search ──────────────────────────────────────────────────────────
+
+function DashboardSearch({ user, projects, setTab }) {
+  const [q, setQ] = useState('')
+  const [open, setOpen] = useState(false)
+  const ref = useRef(null)
+
+  useEffect(() => {
+    const h = e => { if (ref.current && !ref.current.contains(e.target)) setOpen(false) }
+    document.addEventListener('mousedown', h)
+    return () => document.removeEventListener('mousedown', h)
+  }, [])
+
+  const results = q.trim().length < 2 ? [] : (() => {
+    const hits = []
+    const lq = q.toLowerCase()
+
+    // Projects
+    projects.filter(p => p.title.toLowerCase().includes(lq) || (p.description||'').toLowerCase().includes(lq))
+      .slice(0,3).forEach(p => hits.push({ type:'project', label:p.title, sub:p.course, tab:'projects', icon:IC.folder, color:'text-blue-600 dark:text-blue-400', bg:'bg-blue-50 dark:bg-blue-950/40' }))
+
+    // Internships
+    ;((() => {
+      const all = []
+      for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i)
+        if (k?.startsWith('employer_internships_')) {
+          LS.get(k,[]).forEach(x => all.push(x))
+        }
+      }
+      return all
+    })()).filter(i => i.title?.toLowerCase().includes(lq) || (i.companyName||'').toLowerCase().includes(lq))
+      .slice(0,2).forEach(i => hits.push({ type:'internship', label:i.title, sub:i.companyName||'Company', tab:'internships', icon:IC.briefcase, color:'text-green-600 dark:text-green-400', bg:'bg-green-50 dark:bg-green-950/40' }))
+
+    // LH materials
+    LH_COURSES.filter(c => c.name.toLowerCase().includes(lq) || c.code.toLowerCase().includes(lq))
+      .slice(0,2).forEach(c => hits.push({ type:'course', label:c.code, sub:c.name, tab:'learning', icon:IC.bookOpen, color:'text-purple-600 dark:text-purple-400', bg:'bg-purple-50 dark:bg-purple-950/40' }))
+
+    // Messages
+    const threads = LS.get('student_messages_' + user.email, [])
+    threads.filter(t => t.with.toLowerCase().includes(lq))
+      .slice(0,2).forEach(t => hits.push({ type:'message', label:t.with, sub:'Open conversation', tab:'messages', icon:IC.message, color:'text-amber-600 dark:text-amber-400', bg:'bg-amber-50 dark:bg-amber-950/40', msgTarget:t.with }))
+
+    return hits.slice(0,8)
+  })()
+
+  const go = hit => {
+    if (hit.msgTarget) LS.set('student_pending_message_target', hit.msgTarget)
+    setTab(hit.tab)
+    setQ(''); setOpen(false)
+  }
+
+  return (
+    <div ref={ref} className="relative w-full">
+      <div className="relative">
+        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500"><Icon d={IC.search} size={15}/></span>
+        <input value={q} onChange={e => { setQ(e.target.value); setOpen(true) }} onFocus={() => setOpen(true)}
+          placeholder="Search projects, courses, internships, messages…"
+          className="w-full rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 py-3 pl-10 pr-9 text-sm text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 transition-colors"/>
+        {q && <button onClick={() => { setQ(''); setOpen(false) }}
+          className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300">
+          <Icon d={IC.x} size={14}/>
+        </button>}
+      </div>
+      {open && q.trim().length >= 2 && (
+        <div className="absolute top-full mt-2 w-full z-30 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 shadow-xl overflow-hidden">
+          {results.length === 0
+            ? <p className="px-4 py-5 text-center text-sm text-slate-400 dark:text-slate-500">No results for "{q}"</p>
+            : <ul className="divide-y divide-slate-50 dark:divide-slate-700/50">
+              {results.map((r, i) => (
+                <li key={i}>
+                  <button onClick={() => go(r)} className="flex w-full items-center gap-3 px-4 py-2.5 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors text-left">
+                    <div className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg ${r.bg}`}>
+                      <Icon d={r.icon} size={13}/>
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-medium text-slate-700 dark:text-slate-300 truncate">{r.label}</p>
+                      <p className="text-xs text-slate-400 dark:text-slate-500 truncate">{r.sub}</p>
+                    </div>
+                    <span className={`text-[10px] font-semibold uppercase tracking-wide ${r.color} shrink-0`}>{r.type}</span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          }
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ── Continue Learning Card ────────────────────────────────────────────────────
+
+function ContinueLearningCard({ user, setTab }) {
+  const recent = LS.get('lh_recent_' + user.email, [])
+  const lastItem = recent[0] || null
+  const course = lastItem ? LH_COURSES.find(c => c.id === lastItem.courseId) : null
+  const fallbackCourse = LH_COURSES[0]
+  const displayCourse = course || fallbackCourse
+  const cm = LH_COLOR_MAP[displayCourse.color] || LH_COLOR_MAP.blue
+
+  return (
+    <Card className="flex flex-col gap-4">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2 text-slate-800 dark:text-slate-200">
+          <Icon d={IC.bookOpen} size={16}/>
+          <h3 className="font-semibold">Continue Learning</h3>
+        </div>
+        <button onClick={() => setTab('learning')} className="text-xs text-blue-600 dark:text-blue-400 hover:underline">Open Hub</button>
+      </div>
+
+      <div className={`rounded-xl border ${cm.border} ${cm.bg} p-4`}>
+        <div className="flex items-start gap-3">
+          <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${cm.icon}`}>
+            <Icon d={IC.bookOpen} size={18}/>
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className={`text-xs font-semibold ${cm.text}`}>{displayCourse.code}</p>
+            <p className="text-sm font-semibold text-slate-800 dark:text-slate-200 leading-tight mt-0.5 truncate">{displayCourse.name}</p>
+            {lastItem
+              ? <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 truncate">Last: {lastItem.title}</p>
+              : <p className="text-xs text-slate-400 dark:text-slate-500 mt-1">Not started yet</p>
+            }
+          </div>
+          <div className="shrink-0 text-right">
+            <p className={`text-xl font-bold ${cm.text}`}>{displayCourse.progress}%</p>
+            <p className="text-[10px] text-slate-400 dark:text-slate-500">done</p>
+          </div>
+        </div>
+        <div className="mt-3 h-1.5 w-full rounded-full bg-slate-200 dark:bg-slate-600 overflow-hidden">
+          <div className={`h-1.5 rounded-full transition-all duration-700 ${cm.bar}`} style={{width:`${displayCourse.progress}%`}}/>
+        </div>
+      </div>
+
+      <button onClick={() => setTab('learning')}
+        className="inline-flex items-center justify-center gap-2 rounded-xl bg-blue-700 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-800 active:scale-95 transition-all">
+        <Icon d={IC.bookOpen} size={14}/>Resume Learning
+      </button>
+    </Card>
+  )
+}
+
+// ── Academic Progress Snapshot ────────────────────────────────────────────────
+
+function AcademicProgressSnapshot({ user, setTab }) {
+  const allData = {}
+  LH_COURSES.forEach(c => { allData[c.id] = buildCourseData(c.id) })
+  const submissions = LS.get('lh_submissions_' + user.email, {})
+
+  let totalSubmitted = 0, totalPending = 0
+  LH_COURSES.forEach(c => {
+    const d = allData[c.id]
+    d.assignments.forEach(a => {
+      const eff = submissions[a.id] === 'submitted' ? 'submitted' : a.status
+      if (eff === 'submitted') totalSubmitted++
+      else totalPending++
+    })
+  })
+
+  const activeCourses = LH_COURSES.filter(c => c.progress > 0 && c.progress < 100).length
+  const completedCourses = LH_COURSES.filter(c => c.progress === 100).length
+  const overallProgress = Math.round(LH_COURSES.reduce((s, c) => s + c.progress, 0) / LH_COURSES.length)
+
+  const stats = [
+    { label:'Active Courses',   value:activeCourses,    color:'text-blue-700 dark:text-blue-400',   bg:'bg-blue-50 dark:bg-blue-950/40' },
+    { label:'Completed',        value:completedCourses, color:'text-green-700 dark:text-green-400', bg:'bg-green-50 dark:bg-green-950/40' },
+    { label:'Submitted',        value:totalSubmitted,   color:'text-purple-700 dark:text-purple-400',bg:'bg-purple-50 dark:bg-purple-950/40' },
+    { label:'Pending',          value:totalPending,     color:'text-amber-700 dark:text-amber-400', bg:'bg-amber-50 dark:bg-amber-950/40' },
+  ]
+
+  return (
+    <Card>
+      <div className="mb-4 flex items-center justify-between">
+        <div className="flex items-center gap-2 text-slate-800 dark:text-slate-200">
+          <Icon d={IC.target} size={16}/>
+          <h3 className="font-semibold">Academic Progress</h3>
+        </div>
+        <button onClick={() => setTab('learning')} className="text-xs text-blue-600 dark:text-blue-400 hover:underline">View Hub</button>
+      </div>
+
+      <div className="grid grid-cols-4 gap-2 mb-4">
+        {stats.map(s => (
+          <div key={s.label} className={`rounded-xl p-3 text-center ${s.bg}`}>
+            <p className={`text-2xl font-bold ${s.color}`}>{s.value}</p>
+            <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5 leading-tight">{s.label}</p>
+          </div>
+        ))}
+      </div>
+
+      <div>
+        <div className="flex items-center justify-between mb-1.5">
+          <span className="text-xs font-medium text-slate-600 dark:text-slate-400">Overall Progress</span>
+          <span className="text-xs font-bold text-blue-700 dark:text-blue-400">{overallProgress}%</span>
+        </div>
+        <div className="h-2 w-full rounded-full bg-slate-100 dark:bg-slate-700 overflow-hidden">
+          <div className="h-2 rounded-full bg-blue-600 transition-all duration-700" style={{width:`${overallProgress}%`}}/>
+        </div>
+        <div className="mt-3 space-y-2">
+          {LH_COURSES.map(c => {
+            const cm = LH_COLOR_MAP[c.color] || LH_COLOR_MAP.blue
+            return (
+              <div key={c.id} className="flex items-center gap-2">
+                <span className={`h-1.5 w-1.5 rounded-full shrink-0 ${cm.dot}`}/>
+                <span className="text-xs text-slate-600 dark:text-slate-400 w-20 shrink-0 truncate">{c.code}</span>
+                <div className="flex-1 h-1.5 rounded-full bg-slate-100 dark:bg-slate-700 overflow-hidden">
+                  <div className={`h-1.5 rounded-full transition-all duration-700 ${cm.bar}`} style={{width:`${c.progress}%`}}/>
+                </div>
+                <span className={`text-xs font-semibold ${cm.text} w-8 text-right shrink-0`}>{c.progress}%</span>
+              </div>
+            )
+          })}
+        </div>
+      </div>
+    </Card>
+  )
+}
+
+// ── Today's Agenda Card ───────────────────────────────────────────────────────
+
+function TodaysAgendaCard({ user, setTab }) {
+  const scheduleKey = 'student_schedule_' + user.email
+  const allEvents = LS.get(scheduleKey, [])
+  const DAYS = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday']
+  const todayName = DAYS[new Date().getDay()]
+  const now = new Date()
+  const nowMins = now.getHours() * 60 + now.getMinutes()
+
+  const todayEvents = allEvents
+    .filter(e => e.day === todayName)
+    .map(e => {
+      const [h, m] = (e.time || '8:00').split(':').map(Number)
+      const mins = h * 60 + (m || 0)
+      const isPast = mins + (e.duration || 1) * 60 < nowMins
+      const isCurrent = mins <= nowMins && nowMins < mins + (e.duration || 1) * 60
+      return { ...e, mins, isPast, isCurrent }
+    })
+    .sort((a, b) => a.mins - b.mins)
+
+  const priorityDot = { class:'bg-blue-500', deadline:'bg-red-500', interview:'bg-purple-500', meeting:'bg-green-500', reminder:'bg-amber-500' }
+  const priorityBg  = {
+    class:    'border-blue-100 dark:border-blue-900 bg-blue-50 dark:bg-blue-950/30',
+    deadline: 'border-red-100 dark:border-red-900 bg-red-50 dark:bg-red-950/30',
+    interview:'border-purple-100 dark:border-purple-900 bg-purple-50 dark:bg-purple-950/30',
+    meeting:  'border-green-100 dark:border-green-900 bg-green-50 dark:bg-green-950/30',
+    reminder: 'border-amber-100 dark:border-amber-900 bg-amber-50 dark:bg-amber-950/30',
+  }
+
+  return (
+    <Card>
+      <div className="mb-3 flex items-center justify-between">
+        <div className="flex items-center gap-2 text-slate-800 dark:text-slate-200">
+          <Icon d={IC.calendar} size={16}/>
+          <h3 className="font-semibold">Today's Agenda</h3>
+          <Badge color="blue">{todayName}</Badge>
+        </div>
+        <button onClick={() => setTab('schedule')} className="text-xs text-blue-600 dark:text-blue-400 hover:underline">Full schedule</button>
+      </div>
+
+      {todayEvents.length === 0 ? (
+        <div className="flex flex-col items-center gap-3 py-6">
+          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-slate-100 dark:bg-slate-700">
+            <Icon d={IC.calendar} size={22}/>
+          </div>
+          <div className="text-center">
+            <p className="text-sm font-medium text-slate-600 dark:text-slate-400">Nothing scheduled today</p>
+            <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">Add events in your schedule</p>
+          </div>
+          <button onClick={() => setTab('schedule')}
+            className="inline-flex items-center gap-1.5 rounded-lg bg-blue-700 px-3 py-1.5 text-xs font-semibold text-white hover:bg-blue-800 transition-colors">
+            <Icon d={IC.plus} size={12}/>Add Event
+          </button>
+        </div>
+      ) : (
+        <div className="space-y-2">
+          {todayEvents.slice(0, 5).map(e => (
+            <div key={e.id} className={`flex items-center gap-3 rounded-lg border px-3 py-2.5 transition-all ${e.isCurrent ? priorityBg[e.type] || priorityBg.reminder : e.isPast ? 'border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-700/20 opacity-60' : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800'}`}>
+              <div className="flex flex-col items-center shrink-0 w-10">
+                <span className={`text-xs font-mono font-semibold ${e.isCurrent ? 'text-blue-600 dark:text-blue-400' : e.isPast ? 'text-slate-400 dark:text-slate-500' : 'text-slate-600 dark:text-slate-400'}`}>{e.time}</span>
+                {e.isCurrent && <span className="text-[9px] font-bold text-blue-600 dark:text-blue-400 mt-0.5">NOW</span>}
+              </div>
+              <span className={`h-2 w-2 shrink-0 rounded-full ${priorityDot[e.type] || 'bg-slate-400'}`}/>
+              <div className="min-w-0 flex-1">
+                <p className={`text-sm font-medium truncate ${e.isPast ? 'text-slate-400 dark:text-slate-500 line-through' : 'text-slate-700 dark:text-slate-300'}`}>{e.title}</p>
+                {e.location && <p className="text-xs text-slate-400 dark:text-slate-500 truncate">{e.location}</p>}
+              </div>
+              <Badge color={e.type==='class'?'blue':e.type==='deadline'?'red':e.type==='interview'?'purple':e.type==='meeting'?'green':'yellow'}>{e.type}</Badge>
+            </div>
+          ))}
+          {todayEvents.length > 5 && <p className="text-xs text-slate-400 dark:text-slate-500 text-center pt-1">+{todayEvents.length - 5} more events</p>}
+        </div>
+      )}
+    </Card>
+  )
+}
+
+// ── Announcements Widget ──────────────────────────────────────────────────────
+
+function AnnouncementsWidget({ setTab }) {
+  const allAnnouncements = []
+  LH_COURSES.forEach(c => {
+    const d = buildCourseData(c.id)
+    d.announcements.forEach(a => {
+      allAnnouncements.push({ ...a, courseCode:c.code, courseColor:c.color })
+    })
+  })
+  allAnnouncements.sort((a, b) => new Date(b.date) - new Date(a.date))
+  const shown = allAnnouncements.slice(0, 4)
+
+  const typeStyle = {
+    info:    { bg:'bg-blue-50 dark:bg-blue-950/40',   border:'border-blue-200 dark:border-blue-800',   text:'text-blue-700 dark:text-blue-300',   icon:IC.info },
+    warning: { bg:'bg-amber-50 dark:bg-amber-950/40', border:'border-amber-200 dark:border-amber-800', text:'text-amber-700 dark:text-amber-300', icon:IC.alertCircle },
+    success: { bg:'bg-green-50 dark:bg-green-950/40', border:'border-green-200 dark:border-green-800', text:'text-green-700 dark:text-green-300', icon:IC.check },
+  }
+
+  return (
+    <Card>
+      <div className="mb-3 flex items-center justify-between">
+        <div className="flex items-center gap-2 text-slate-800 dark:text-slate-200">
+          <Icon d={IC.megaphone} size={16}/>
+          <h3 className="font-semibold">Announcements</h3>
+        </div>
+        <button onClick={() => setTab('learning')} className="text-xs text-blue-600 dark:text-blue-400 hover:underline">View all</button>
+      </div>
+      <div className="space-y-2">
+        {shown.map(a => {
+          const s = typeStyle[a.type] || typeStyle.info
+          const cm = LH_COLOR_MAP[a.courseColor || 'blue']
+          return (
+            <div key={a.id} className={`rounded-lg border px-3 py-2.5 ${s.bg} ${s.border}`}>
+              <div className="flex items-start gap-2">
+                <Icon d={s.icon} size={13}/>
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <p className={`text-xs font-semibold ${s.text}`}>{a.title}</p>
+                    <span className={`text-[10px] font-semibold ${cm.text}`}>{a.courseCode}</span>
+                  </div>
+                  <p className="text-xs text-slate-600 dark:text-slate-300 mt-0.5 leading-snug line-clamp-2">{a.message}</p>
+                </div>
+                <span className="text-[10px] text-slate-400 dark:text-slate-500 shrink-0">{a.date}</span>
+              </div>
+            </div>
+          )
+        })}
+      </div>
+    </Card>
+  )
+}
+
+// ── Personal Insights ─────────────────────────────────────────────────────────
+
+function PersonalInsightsCard({ user, projects }) {
+  const myProjects = projects.filter(p => p.owner === user.email)
+  const submissions = LS.get('lh_submissions_' + user.email, {})
+  const recent = LS.get('lh_recent_' + user.email, [])
+  const bookmarks = LS.get('lh_bookmarks_' + user.email, {})
+
+  // Busiest course by views
+  const courseCounts = {}
+  recent.forEach(r => { if (r.courseId) courseCounts[r.courseId] = (courseCounts[r.courseId] || 0) + 1 })
+  const busiestId = Object.entries(courseCounts).sort((a,b) => b[1]-a[1])[0]?.[0]
+  const busiestCourse = busiestId ? LH_COURSES.find(c => c.id === busiestId) : null
+
+  // Assignments submitted this week
+  const weekAgo = new Date(); weekAgo.setDate(weekAgo.getDate() - 7)
+  const submittedThisWeek = Object.keys(submissions).filter(k => submissions[k] === 'submitted').length
+
+  // Overall completion rate
+  let totalAssignments = 0, submittedTotal = 0
+  LH_COURSES.forEach(c => {
+    const d = buildCourseData(c.id)
+    totalAssignments += d.assignments.length
+    d.assignments.forEach(a => { if (submissions[a.id] === 'submitted' || a.status === 'submitted') submittedTotal++ })
+  })
+  const completionRate = totalAssignments > 0 ? Math.round((submittedTotal / totalAssignments) * 100) : 0
+
+  // Learning streak (days with recent views)
+  const viewDays = new Set(recent.map(r => r.viewedAt?.split(' ')[0]).filter(Boolean))
+  const streak = viewDays.size
+
+  const bmCount = Object.values(bookmarks).filter(Boolean).length
+
+  const insights = [
+    { label:'Completion Rate', value:`${completionRate}%`, icon:IC.target,   color:'text-blue-700 dark:text-blue-400',   bg:'bg-blue-50 dark:bg-blue-950/40' },
+    { label:'Submitted',       value:submittedTotal,       icon:IC.check,    color:'text-green-700 dark:text-green-400', bg:'bg-green-50 dark:bg-green-950/40' },
+    { label:'Materials Saved', value:bmCount,              icon:IC.bookmark, color:'text-amber-700 dark:text-amber-400', bg:'bg-amber-50 dark:bg-amber-950/40' },
+    { label:'Active Days',     value:streak,               icon:IC.activity, color:'text-purple-700 dark:text-purple-400',bg:'bg-purple-50 dark:bg-purple-950/40' },
+  ]
+
+  return (
+    <Card>
+      <div className="mb-4 flex items-center gap-2 text-slate-800 dark:text-slate-200">
+        <Icon d={IC.sparkle} size={16}/>
+        <h3 className="font-semibold">Personal Insights</h3>
+      </div>
+      <div className="grid grid-cols-2 gap-2 mb-4">
+        {insights.map(s => (
+          <div key={s.label} className={`rounded-xl p-3 ${s.bg} transition-all hover:-translate-y-0.5 hover:shadow-sm`}>
+            <div className="flex items-center gap-1.5 mb-1"><Icon d={s.icon} size={12}/></div>
+            <p className={`text-xl font-bold ${s.color}`}>{s.value}</p>
+            <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5 leading-tight">{s.label}</p>
+          </div>
+        ))}
+      </div>
+      {busiestCourse && (
+        <div className="rounded-lg bg-slate-50 dark:bg-slate-700/40 px-3 py-2.5">
+          <p className="text-xs text-slate-500 dark:text-slate-400">Most active course</p>
+          <div className="flex items-center gap-2 mt-1">
+            <span className={`h-2 w-2 rounded-full shrink-0 ${(LH_COLOR_MAP[busiestCourse.color]||LH_COLOR_MAP.blue).dot}`}/>
+            <p className="text-sm font-semibold text-slate-800 dark:text-slate-200">{busiestCourse.code}</p>
+            <span className="text-xs text-slate-400 dark:text-slate-500">{busiestCourse.name}</span>
+          </div>
+        </div>
+      )}
+      {myProjects.length > 0 && (
+        <div className="mt-2 rounded-lg bg-slate-50 dark:bg-slate-700/40 px-3 py-2.5">
+          <p className="text-xs text-slate-500 dark:text-slate-400">Projects uploaded</p>
+          <p className="text-sm font-semibold text-slate-800 dark:text-slate-200 mt-0.5">{myProjects.length} project{myProjects.length !== 1 ? 's' : ''} · {myProjects.filter(p=>p.visibility==='public').length} public</p>
+        </div>
+      )}
+    </Card>
+  )
+}
+
+// ── Enhanced Quick Actions (LH-aware) ────────────────────────────────────────
+
+function LHQuickActionsPanel({ user, setTab }) {
+  const recent = LS.get('lh_recent_' + user.email, [])
+  const lastCourse = recent[0] ? LH_COURSES.find(c => c.id === recent[0].courseId) : LH_COURSES[0]
+
+  const actions = [
+    { label:'Learning Hub',      icon:IC.bookOpen,  tab:'learning',    color:'bg-blue-50 dark:bg-blue-950/40 hover:bg-blue-100 dark:hover:bg-blue-900/50 text-blue-700 dark:text-blue-300 border-blue-100 dark:border-blue-900' },
+    { label:'Assignments',       icon:IC.task,      tab:'learning',    color:'bg-amber-50 dark:bg-amber-950/40 hover:bg-amber-100 dark:hover:bg-amber-900/50 text-amber-700 dark:text-amber-300 border-amber-100 dark:border-amber-900' },
+    { label:lastCourse ? `Resume ${lastCourse.code}` : 'Start Course', icon:IC.playCircle, tab:'learning', color:'bg-purple-50 dark:bg-purple-950/40 hover:bg-purple-100 dark:hover:bg-purple-900/50 text-purple-700 dark:text-purple-300 border-purple-100 dark:border-purple-900' },
+    { label:'Internships',       icon:IC.briefcase, tab:'internships', color:'bg-green-50 dark:bg-green-950/40 hover:bg-green-100 dark:hover:bg-green-900/50 text-green-700 dark:text-green-300 border-green-100 dark:border-green-900' },
+    { label:'Messages',          icon:IC.message,   tab:'messages',    color:'bg-rose-50 dark:bg-rose-950/40 hover:bg-rose-100 dark:hover:bg-rose-900/50 text-rose-700 dark:text-rose-300 border-rose-100 dark:border-rose-900' },
+    { label:'Upload Project',    icon:IC.upload,    tab:'create-project', color:'bg-slate-50 dark:bg-slate-700/40 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-600' },
+  ]
+  return (
+    <Card>
+      <h3 className="mb-3 font-semibold text-slate-800 dark:text-slate-200">Quick Actions</h3>
+      <div className="grid grid-cols-3 gap-2">
+        {actions.map(a => (
+          <button key={a.label} onClick={() => setTab(a.tab)}
+            className={`flex flex-col items-center gap-1.5 rounded-xl border p-3 text-center transition-all duration-150 hover:-translate-y-0.5 hover:shadow-sm active:scale-95 ${a.color}`}>
+            <Icon d={a.icon} size={18}/>
+            <span className="text-[11px] font-semibold leading-tight">{a.label}</span>
+          </button>
+        ))}
+      </div>
+    </Card>
+  )
+}
+
+
 // ── Main Overview ────────────────────────────────────────────────────────────
 
 function Overview({ user, projects, notifications, setTab }) {
@@ -656,6 +1110,9 @@ function Overview({ user, projects, notifications, setTab }) {
 
   return (
     <div className="space-y-6">
+
+      {/* ── Dashboard Search ── */}
+      <DashboardSearch user={user} projects={projects} setTab={setTab} />
 
       {/* ── Hero Section ── */}
       <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-blue-700 via-blue-600 to-blue-500 px-8 py-10 sm:px-12 sm:py-14 shadow-lg shadow-blue-200 dark:shadow-blue-900/30">
@@ -705,7 +1162,13 @@ function Overview({ user, projects, notifications, setTab }) {
       {/* ── Profile Completion + Quick Actions ── */}
       <div className="grid gap-4 lg:grid-cols-2">
         <ProfileCompletionCard user={user} projects={projects} setTab={setTab} />
-        <QuickActionsPanel setTab={setTab} />
+        <LHQuickActionsPanel user={user} setTab={setTab} />
+      </div>
+
+      {/* ── Continue Learning + Today's Agenda ── */}
+      <div className="grid gap-4 lg:grid-cols-2">
+        <ContinueLearningCard user={user} setTab={setTab} />
+        <TodaysAgendaCard user={user} setTab={setTab} />
       </div>
 
       {/* ── Deadlines + Activity ── */}
@@ -722,6 +1185,15 @@ function Overview({ user, projects, notifications, setTab }) {
 
       {/* ── Achievements ── */}
       <AchievementsSection user={user} projects={projects} notifications={notifications} />
+
+      {/* ── Academic Progress + Personal Insights ── */}
+      <div className="grid gap-4 lg:grid-cols-2">
+        <AcademicProgressSnapshot user={user} setTab={setTab} />
+        <PersonalInsightsCard user={user} projects={projects} />
+      </div>
+
+      {/* ── Announcements ── */}
+      <AnnouncementsWidget setTab={setTab} />
 
       {/* ── Languages Used ── */}
       <div className="grid gap-4 lg:grid-cols-2">
@@ -2231,7 +2703,7 @@ function NotificationsSection({ notifications, setNotifications, profileEmail, s
                 </div>
               </div>
             )
-          })}1
+          })}
         </div>
       }
     </div>
