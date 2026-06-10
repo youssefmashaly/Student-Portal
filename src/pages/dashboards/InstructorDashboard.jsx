@@ -52,8 +52,18 @@ const IC = {
   zap:      'M13 2L3 14h9l-1 8 10-12h-9l1-8z',
   shield:   'M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z',
   settings: 'M12 15a3 3 0 100-6 3 3 0 000 6zM19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z',
-  download: 'M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3',
-  calendar: 'M8 2v4M16 2v4M3 10h18M5 4h14a2 2 0 012 2v14a2 2 0 01-2 2H5a2 2 0 01-2-2V6a2 2 0 012-2z',
+  download:    'M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3',
+  calendar:    'M8 2v4M16 2v4M3 10h18M5 4h14a2 2 0 012 2v14a2 2 0 01-2 2H5a2 2 0 01-2-2V6a2 2 0 012-2z',
+  activity:    'M22 12h-4l-3 9L9 3l-3 9H2',
+  trendUp:     'M23 6l-9.5 9.5-5-5L1 18',
+  alertCircle: 'M12 22a10 10 0 100-20 10 10 0 000 20zM12 8v4M12 16h.01',
+  clock:       'M12 22a10 10 0 100-20 10 10 0 000 20zM12 6v6l4 2',
+  target:      'M12 22a10 10 0 100-20 10 10 0 000 20zM12 18a6 6 0 100-12 6 6 0 000 12zM12 14a2 2 0 100-4 2 2 0 000 4z',
+  megaphone:   'M3 11l19-9-9 19-2-8-8-2zM11 13l3-3',
+  userCheck:   'M16 21v-2a4 4 0 00-4-4H6a4 4 0 00-4 4v2M9 11a4 4 0 100-8 4 4 0 000 8M16 11l2 2 4-4',
+  layers:      'M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5',
+  arrowRight:  'M5 12h14M12 5l7 7-7 7',
+  info:        'M12 22a10 10 0 100-20 10 10 0 000 20zM12 16v-4M12 8h.01',
 }
 
 // ── Shared primitives (identical to StudentDashboard) ─────────────────────────
@@ -150,11 +160,566 @@ const getSharedProjects = () => LS.get('student_projects', [])
 const setSharedProjects = (v) => LS.set('student_projects', typeof v === 'function' ? v(getSharedProjects()) : v)
 const unreadCount = (notifs) => notifs.filter(n => !n.read).length
 
+// ── Supervision Analytics helpers ─────────────────────────────────────────────
+
+function buildSupervisionStats(user, projects) {
+  const assigned = projects.filter(p => (p.collaborators || []).some(c => c.email === user.email && c.status === 'accepted'))
+  const ownerEmails = [...new Set(assigned.map(p => p.owner))]
+  const completed = assigned.filter(p => (p.tasks || []).length > 0 && (p.tasks || []).every(t => t.status === 'completed'))
+  const active = assigned.filter(p => (p.tasks || []).some(t => t.status !== 'completed'))
+  const withFeedback = assigned.filter(p => (p.instructorComments || []).length > 0)
+  const avgProgress = assigned.length > 0 ? Math.round(
+    assigned.reduce((sum, p) => {
+      const tasks = p.tasks || []
+      if (tasks.length === 0) return sum + 50
+      const done = tasks.filter(t => t.status === 'completed').length
+      return sum + Math.round((done / tasks.length) * 100)
+    }, 0) / assigned.length
+  ) : 0
+
+  const atRisk = assigned.filter(p => {
+    const tasks = p.tasks || []
+    const overdue = tasks.filter(t => t.deadline && new Date(t.deadline) < new Date() && t.status !== 'completed')
+    const pct = tasks.length > 0 ? Math.round((tasks.filter(t=>t.status==='completed').length/tasks.length)*100) : 50
+    return overdue.length > 0 || pct < 30
+  })
+
+  const pendingReviews = assigned.filter(p =>
+    (p.thesisDrafts || []).some(d => d.isFinal) ||
+    (p.tasks || []).some(t => t.status === 'completed' && !t.instructorComment) ||
+    !(p.instructorComments || []).length
+  )
+
+  return { assigned, ownerEmails, completed, active, withFeedback, avgProgress, atRisk, pendingReviews }
+}
+
+// ── Quick Actions Panel ───────────────────────────────────────────────────────
+function InstructorQuickActions({ setTab, openFeedbackCenter, openMeetingModal, openAnnouncementModal }) {
+  const actions = [
+    { label:'Review Submissions', icon:IC.folder,     fn:() => setTab('projects'),   color:'bg-blue-50 dark:bg-blue-950/40 hover:bg-blue-100 dark:hover:bg-blue-900/50 text-blue-700 dark:text-blue-300 border-blue-100 dark:border-blue-900' },
+    { label:'Manage Students',    icon:IC.users,      fn:() => setTab('portfolios'), color:'bg-purple-50 dark:bg-purple-950/40 hover:bg-purple-100 dark:hover:bg-purple-900/50 text-purple-700 dark:text-purple-300 border-purple-100 dark:border-purple-900' },
+    { label:'Schedule Meeting',   icon:IC.calendar,   fn:openMeetingModal,           color:'bg-green-50 dark:bg-green-950/40 hover:bg-green-100 dark:hover:bg-green-900/50 text-green-700 dark:text-green-300 border-green-100 dark:border-green-900' },
+    { label:'Post Announcement',  icon:IC.megaphone,  fn:openAnnouncementModal,      color:'bg-amber-50 dark:bg-amber-950/40 hover:bg-amber-100 dark:hover:bg-amber-900/50 text-amber-700 dark:text-amber-300 border-amber-100 dark:border-amber-900' },
+    { label:'Quick Feedback',     icon:IC.edit,       fn:openFeedbackCenter,         color:'bg-rose-50 dark:bg-rose-950/40 hover:bg-rose-100 dark:hover:bg-rose-900/50 text-rose-700 dark:text-rose-300 border-rose-100 dark:border-rose-900' },
+    { label:'View Analytics',     icon:IC.target,     fn:() => setTab('analytics'),  color:'bg-slate-50 dark:bg-slate-700/40 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-600' },
+  ]
+  return (
+    <Card>
+      <h3 className="mb-3 font-semibold text-slate-800 dark:text-slate-200">Quick Actions</h3>
+      <div className="grid grid-cols-3 gap-2">
+        {actions.map(a => (
+          <button key={a.label} onClick={a.fn}
+            className={`flex flex-col items-center gap-1.5 rounded-xl border p-3 text-center transition-all duration-150 hover:-translate-y-0.5 hover:shadow-sm active:scale-95 ${a.color}`}>
+            <Icon d={a.icon} size={18}/>
+            <span className="text-[11px] font-semibold leading-tight">{a.label}</span>
+          </button>
+        ))}
+      </div>
+    </Card>
+  )
+}
+
+// ── Student Performance Overview ──────────────────────────────────────────────
+function StudentPerformanceWidget({ stats, setTab }) {
+  const { assigned, ownerEmails, completed, active, atRisk, avgProgress } = stats
+  const items = [
+    { label:'Supervised Students', value:ownerEmails.length, color:'text-blue-700 dark:text-blue-400',   bg:'bg-blue-50 dark:bg-blue-950/40',   tab:'projects' },
+    { label:'Active Projects',     value:active.length,      color:'text-purple-700 dark:text-purple-400',bg:'bg-purple-50 dark:bg-purple-950/40',tab:'projects' },
+    { label:'Completed Projects',  value:completed.length,   color:'text-green-700 dark:text-green-400', bg:'bg-green-50 dark:bg-green-950/40', tab:'projects' },
+    { label:'Need Attention',      value:atRisk.length,      color:'text-red-700 dark:text-red-400',     bg:'bg-red-50 dark:bg-red-950/40',     tab:'projects' },
+  ]
+  return (
+    <Card>
+      <div className="mb-4 flex items-center justify-between">
+        <div className="flex items-center gap-2 text-slate-800 dark:text-slate-200">
+          <Icon d={IC.target} size={16}/>
+          <h3 className="font-semibold">Student Performance</h3>
+        </div>
+        <button onClick={() => setTab('analytics')} className="text-xs text-blue-600 dark:text-blue-400 hover:underline">Analytics →</button>
+      </div>
+      <div className="grid grid-cols-2 gap-2 mb-4">
+        {items.map(s => (
+          <button key={s.label} onClick={() => setTab(s.tab)} className={`rounded-xl p-3 text-left transition-all hover:-translate-y-0.5 hover:shadow-sm ${s.bg}`}>
+            <p className={`text-2xl font-bold ${s.color}`}>{s.value}</p>
+            <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 leading-tight">{s.label}</p>
+          </button>
+        ))}
+      </div>
+      <div>
+        <div className="flex items-center justify-between mb-1.5">
+          <span className="text-xs font-medium text-slate-600 dark:text-slate-400">Avg. Student Progress</span>
+          <span className="text-xs font-bold text-blue-700 dark:text-blue-400">{avgProgress}%</span>
+        </div>
+        <div className="h-2 w-full rounded-full bg-slate-100 dark:bg-slate-700 overflow-hidden">
+          <div className={`h-2 rounded-full transition-all duration-700 ${avgProgress >= 70 ? 'bg-green-500' : avgProgress >= 40 ? 'bg-blue-600' : 'bg-amber-500'}`} style={{width:`${avgProgress}%`}}/>
+        </div>
+      </div>
+    </Card>
+  )
+}
+
+// ── At-Risk Students Panel ────────────────────────────────────────────────────
+function AtRiskPanel({ stats, setTab }) {
+  const { atRisk } = stats
+  if (atRisk.length === 0) return (
+    <Card>
+      <div className="flex items-center gap-2 mb-3 text-slate-800 dark:text-slate-200">
+        <Icon d={IC.alertCircle} size={16}/>
+        <h3 className="font-semibold">At-Risk Students</h3>
+      </div>
+      <div className="flex flex-col items-center gap-2 py-6 text-center">
+        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-green-50 dark:bg-green-950/40 text-green-500"><Icon d={IC.check} size={20}/></div>
+        <p className="text-sm font-medium text-slate-600 dark:text-slate-400">All students on track</p>
+      </div>
+    </Card>
+  )
+  return (
+    <Card>
+      <div className="mb-3 flex items-center justify-between">
+        <div className="flex items-center gap-2 text-slate-800 dark:text-slate-200">
+          <Icon d={IC.alertCircle} size={16}/>
+          <h3 className="font-semibold">At-Risk Students</h3>
+          <Badge color="red">{atRisk.length}</Badge>
+        </div>
+        <button onClick={() => setTab('projects')} className="text-xs text-blue-600 dark:text-blue-400 hover:underline">View all</button>
+      </div>
+      <div className="space-y-2">
+        {atRisk.slice(0,4).map(p => {
+          const tasks = p.tasks || []
+          const overdue = tasks.filter(t => t.deadline && new Date(t.deadline) < new Date() && t.status !== 'completed')
+          const pct = tasks.length > 0 ? Math.round((tasks.filter(t=>t.status==='completed').length/tasks.length)*100) : 0
+          const reasons = []
+          if (overdue.length > 0) reasons.push(`${overdue.length} overdue task${overdue.length>1?'s':''}`)
+          if (pct < 30) reasons.push(`low progress (${pct}%)`)
+          if (reasons.length === 0) reasons.push('needs review')
+          return (
+            <div key={p.id} className="flex items-center gap-3 rounded-xl border border-red-100 dark:border-red-900 bg-red-50 dark:bg-red-950/30 px-3 py-2.5">
+              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-red-100 dark:bg-red-900/50 text-sm font-bold text-red-600 dark:text-red-400">
+                {p.owner?.[0]?.toUpperCase() || '?'}
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-medium text-slate-800 dark:text-slate-200 truncate">{p.owner}</p>
+                <p className="text-xs text-slate-500 dark:text-slate-400 truncate">{p.title} · <span className="text-red-600 dark:text-red-400">{reasons.join(', ')}</span></p>
+              </div>
+              <button onClick={() => setTab('projects')} className="shrink-0 rounded-lg bg-red-600 px-2.5 py-1 text-xs font-medium text-white hover:bg-red-700 transition-colors">Review</button>
+            </div>
+          )
+        })}
+      </div>
+    </Card>
+  )
+}
+
+// ── Pending Reviews ───────────────────────────────────────────────────────────
+function PendingReviewsWidget({ stats, setTab }) {
+  const { pendingReviews } = stats
+  const now = new Date()
+
+  const reviewItems = pendingReviews.slice(0, 5).map(p => {
+    const hasFinalThesis = (p.thesisDrafts || []).some(d => d.isFinal)
+    const completedUncommented = (p.tasks || []).filter(t => t.status === 'completed' && !t.instructorComment)
+    const hasNoFeedback = !(p.instructorComments || []).length
+    const type = hasFinalThesis ? 'Thesis Review' : completedUncommented.length ? 'Task Review' : 'Project Review'
+    const priority = hasFinalThesis ? 'red' : completedUncommented.length >= 2 ? 'yellow' : 'slate'
+    const priorityLabel = hasFinalThesis ? 'High' : completedUncommented.length >= 2 ? 'Medium' : 'Low'
+    return { p, type, priority, priorityLabel, owner: p.owner, date: p.createdAt }
+  })
+
+  return (
+    <Card>
+      <div className="mb-3 flex items-center justify-between">
+        <div className="flex items-center gap-2 text-slate-800 dark:text-slate-200">
+          <Icon d={IC.clock} size={16}/>
+          <h3 className="font-semibold">Pending Reviews</h3>
+          {reviewItems.length > 0 && <Badge color="yellow">{reviewItems.length}</Badge>}
+        </div>
+        <button onClick={() => setTab('projects')} className="text-xs text-blue-600 dark:text-blue-400 hover:underline">View all</button>
+      </div>
+      {reviewItems.length === 0 ? (
+        <div className="flex flex-col items-center gap-2 py-6 text-center">
+          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-green-50 dark:bg-green-950/40 text-green-500"><Icon d={IC.check} size={20}/></div>
+          <p className="text-sm font-medium text-slate-600 dark:text-slate-400">No pending reviews</p>
+        </div>
+      ) : (
+        <div className="space-y-2">
+          {reviewItems.map(({ p, type, priority, priorityLabel, owner, date }) => (
+            <div key={p.id} className="flex items-center gap-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-700/30 px-3 py-2.5 hover:border-blue-200 dark:hover:border-blue-700 transition-all">
+              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400"><Icon d={IC.fileText} size={14}/></div>
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-medium text-slate-700 dark:text-slate-300 truncate">{p.title}</p>
+                <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                  <span className="text-xs text-slate-400 dark:text-slate-500">{owner}</span>
+                  <Badge color="blue">{p.course}</Badge>
+                  <span className="text-xs text-slate-400 dark:text-slate-500">{type}</span>
+                </div>
+              </div>
+              <Badge color={priority}>{priorityLabel}</Badge>
+            </div>
+          ))}
+        </div>
+      )}
+    </Card>
+  )
+}
+
+// ── Student Progress Tracker ──────────────────────────────────────────────────
+function StudentProgressTracker({ stats }) {
+  const { assigned } = stats
+  if (assigned.length === 0) return (
+    <Card>
+      <div className="flex items-center gap-2 mb-4 text-slate-800 dark:text-slate-200">
+        <Icon d={IC.layers} size={16}/>
+        <h3 className="font-semibold">Student Progress</h3>
+      </div>
+      <EmptyState message="No assigned projects yet." />
+    </Card>
+  )
+  return (
+    <Card>
+      <div className="mb-4 flex items-center gap-2 text-slate-800 dark:text-slate-200">
+        <Icon d={IC.layers} size={16}/>
+        <h3 className="font-semibold">Student Progress Tracker</h3>
+      </div>
+      <div className="space-y-3">
+        {assigned.slice(0, 6).map(p => {
+          const tasks = p.tasks || []
+          const done = tasks.filter(t => t.status === 'completed').length
+          const total = tasks.length
+          const pct = total > 0 ? Math.round((done / total) * 100) : 50
+          const remaining = total - done
+          const status = pct >= 80 ? 'green' : pct >= 40 ? 'blue' : 'red'
+          const statusLabel = pct >= 80 ? 'On Track' : pct >= 40 ? 'In Progress' : 'Needs Help'
+          const barColor = pct >= 80 ? 'bg-green-500' : pct >= 40 ? 'bg-blue-600' : 'bg-red-500'
+          return (
+            <div key={p.id}>
+              <div className="flex items-center justify-between mb-1">
+                <div className="flex items-center gap-2 min-w-0">
+                  <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-blue-100 dark:bg-blue-900/50 text-[10px] font-bold text-blue-700 dark:text-blue-300">
+                    {p.owner?.[0]?.toUpperCase() || '?'}
+                  </div>
+                  <span className="text-xs font-medium text-slate-700 dark:text-slate-300 truncate">{p.title}</span>
+                </div>
+                <div className="flex items-center gap-2 shrink-0 ml-2">
+                  {total > 0 && <span className="text-[10px] text-slate-400 dark:text-slate-500">{done}/{total} tasks</span>}
+                  <Badge color={status}>{statusLabel}</Badge>
+                  <span className="text-xs font-bold text-slate-600 dark:text-slate-400">{pct}%</span>
+                </div>
+              </div>
+              <div className="h-1.5 w-full rounded-full bg-slate-100 dark:bg-slate-700 overflow-hidden">
+                <div className={`h-1.5 rounded-full transition-all duration-700 ${barColor}`} style={{width:`${pct}%`}}/>
+              </div>
+            </div>
+          )
+        })}
+      </div>
+    </Card>
+  )
+}
+
+// ── Recent Activity Feed ──────────────────────────────────────────────────────
+function InstructorActivityFeed({ user, projects, notifications }) {
+  const events = []
+
+  projects.filter(p => (p.collaborators||[]).some(c=>c.email===user.email&&c.status==='accepted')).forEach(p => {
+    if (p.createdAt) events.push({ id:'proj_'+p.id, label:`New project: "${p.title}"`, sub:p.owner, date:p.createdAt, icon:IC.folder, color:'bg-blue-100 dark:bg-blue-900/50 text-blue-600 dark:text-blue-400' });
+    (p.instructorComments||[]).forEach(c => events.push({ id:'fb_'+c.id, label:`You reviewed "${p.title}"`, sub:p.owner, date:c.at||p.createdAt, icon:IC.edit, color:'bg-purple-100 dark:bg-purple-900/50 text-purple-600 dark:text-purple-400' }));
+    (p.tasks||[]).filter(t=>t.status==='completed').forEach(t => events.push({ id:'task_'+t.id, label:`Task completed: "${t.title}"`, sub:p.title, date:t.deadline||p.createdAt, icon:IC.check, color:'bg-green-100 dark:bg-green-900/50 text-green-600 dark:text-green-400' }));
+    if (p.flagged) events.push({ id:'flag_'+p.id, label:`You flagged "${p.title}"`, sub:p.owner, date:p.createdAt, icon:IC.flag, color:'bg-red-100 dark:bg-red-900/50 text-red-600 dark:text-red-400' });
+  });
+
+  notifications.slice().reverse().slice(0,3).forEach(n => events.push({ id:'notif_'+n.id, label:n.message, sub:'', date:n.createdAt, icon:IC.bell, color:'bg-amber-100 dark:bg-amber-900/50 text-amber-600 dark:text-amber-400' }))
+  events.sort((a,b) => new Date(b.date)-new Date(a.date))
+  const shown = events.slice(0,7)
+
+  return (
+    <Card>
+      <div className="mb-4 flex items-center justify-between text-slate-800 dark:text-slate-200">
+        <div className="flex items-center gap-2"><Icon d={IC.activity} size={16}/><h3 className="font-semibold">Recent Activity</h3></div>
+      </div>
+      {shown.length === 0 ? <EmptyState message="No activity yet." /> : (
+        <ol className="relative border-l border-slate-200 dark:border-slate-700 pl-5 space-y-4">
+          {shown.map(ev => (
+            <li key={ev.id} className="relative">
+              <span className={`absolute -left-[21px] flex h-4 w-4 items-center justify-center rounded-full ring-2 ring-white dark:ring-slate-800 ${ev.color}`}>
+                <Icon d={ev.icon} size={9}/>
+              </span>
+              <p className="text-sm text-slate-700 dark:text-slate-300 leading-snug">{ev.label}</p>
+              {ev.sub && <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">{ev.sub}</p>}
+              <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-0.5">{new Date(ev.date).toLocaleDateString(undefined,{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'})}</p>
+            </li>
+          ))}
+        </ol>
+      )}
+    </Card>
+  )
+}
+
+// ── Supervision Analytics ─────────────────────────────────────────────────────
+function SupervisionAnalyticsSection({ user, projects }) {
+  const stats = buildSupervisionStats(user, projects)
+  const { assigned, ownerEmails, completed, active, withFeedback, avgProgress, atRisk } = stats
+
+  const completionRate = assigned.length > 0 ? Math.round((completed.length / assigned.length) * 100) : 0
+  const feedbackRate = assigned.length > 0 ? Math.round((withFeedback.length / assigned.length) * 100) : 0
+  const atRiskRate = assigned.length > 0 ? Math.round((atRisk.length / assigned.length) * 100) : 0
+
+  const kpis = [
+    { label:'Active Supervisees',   value:ownerEmails.length, color:'text-blue-700 dark:text-blue-400',   bg:'bg-blue-50 dark:bg-blue-950/40',   icon:IC.users },
+    { label:'Completed Projects',   value:completed.length,   color:'text-green-700 dark:text-green-400', bg:'bg-green-50 dark:bg-green-950/40', icon:IC.check },
+    { label:'Avg. Completion Rate', value:`${completionRate}%`,color:'text-purple-700 dark:text-purple-400',bg:'bg-purple-50 dark:bg-purple-950/40',icon:IC.target },
+    { label:'Feedback Coverage',    value:`${feedbackRate}%`, color:'text-amber-700 dark:text-amber-400', bg:'bg-amber-50 dark:bg-amber-950/40', icon:IC.edit },
+  ]
+
+  const metrics = [
+    { label:'Avg. Student Progress', pct:avgProgress,      color: avgProgress>=70?'bg-green-500':avgProgress>=40?'bg-blue-600':'bg-amber-500' },
+    { label:'Completion Rate',        pct:completionRate,   color:'bg-blue-600' },
+    { label:'Feedback Rate',          pct:feedbackRate,     color:'bg-purple-600' },
+    { label:'At-Risk Rate',           pct:atRiskRate,       color:'bg-red-500' },
+  ]
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h2 className="text-2xl font-bold text-slate-900 dark:text-white">Supervision Analytics</h2>
+        <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Performance metrics across your supervised projects.</p>
+      </div>
+
+      <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+        {kpis.map(k => (
+          <div key={k.label} className={`rounded-xl p-5 shadow-sm ${k.bg} hover:-translate-y-0.5 hover:shadow-md transition-all`}>
+            <div className="flex items-center justify-between mb-2"><Icon d={k.icon} size={14}/></div>
+            <p className={`text-3xl font-bold ${k.color}`}>{k.value}</p>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 leading-tight">{k.label}</p>
+          </div>
+        ))}
+      </div>
+
+      <Card>
+        <h3 className="font-semibold text-slate-800 dark:text-slate-200 mb-4">Progress Metrics</h3>
+        <div className="space-y-4">
+          {metrics.map(m => (
+            <div key={m.label}>
+              <div className="flex items-center justify-between mb-1.5">
+                <span className="text-sm font-medium text-slate-700 dark:text-slate-300">{m.label}</span>
+                <span className="text-sm font-bold text-slate-600 dark:text-slate-400">{m.pct}%</span>
+              </div>
+              <div className="h-2.5 w-full rounded-full bg-slate-100 dark:bg-slate-700 overflow-hidden">
+                <div className={`h-2.5 rounded-full transition-all duration-700 ${m.color}`} style={{width:`${m.pct}%`}}/>
+              </div>
+            </div>
+          ))}
+        </div>
+      </Card>
+
+      <Card>
+        <h3 className="font-semibold text-slate-800 dark:text-slate-200 mb-4">Per-Project Breakdown</h3>
+        {assigned.length === 0 ? <EmptyState message="No assigned projects yet." /> : (
+          <div className="space-y-3">
+            {assigned.map(p => {
+              const tasks = p.tasks || []
+              const done = tasks.filter(t=>t.status==='completed').length
+              const total = tasks.length
+              const pct = total>0 ? Math.round((done/total)*100) : 50
+              const hasFeedback = (p.instructorComments||[]).length>0
+              const isAtRisk = atRisk.find(r=>r.id===p.id)
+              const barColor = pct>=70?'bg-green-500':pct>=40?'bg-blue-600':'bg-red-500'
+              return (
+                <div key={p.id} className="rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-700/30 px-4 py-3">
+                  <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
+                    <div>
+                      <p className="font-medium text-slate-800 dark:text-slate-200">{p.title}</p>
+                      <p className="text-xs text-slate-500 dark:text-slate-400">Owner: {p.owner} · <Badge color="blue">{p.course}</Badge></p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {isAtRisk && <Badge color="red">At Risk</Badge>}
+                      {hasFeedback && <Badge color="green">Reviewed</Badge>}
+                      {p.rating>0 && <Badge color="yellow">★ {p.rating}/5</Badge>}
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="flex-1 h-2 rounded-full bg-slate-200 dark:bg-slate-600 overflow-hidden">
+                      <div className={`h-2 rounded-full transition-all duration-700 ${barColor}`} style={{width:`${pct}%`}}/>
+                    </div>
+                    <span className="text-xs font-bold text-slate-600 dark:text-slate-400 w-10 text-right">{pct}%</span>
+                    {total>0 && <span className="text-xs text-slate-400 dark:text-slate-500">{done}/{total} tasks</span>}
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        )}
+      </Card>
+    </div>
+  )
+}
+
+// ── Quick Feedback Center ─────────────────────────────────────────────────────
+function QuickFeedbackCenter({ user, projects, setProjects, pushNotif, onClose }) {
+  const assigned = projects.filter(p => (p.collaborators||[]).some(c=>c.email===user.email&&c.status==='accepted'))
+  const [selectedId, setSelectedId] = useState(assigned[0]?.id || '')
+  const [comment, setComment] = useState('')
+  const [rating, setRating] = useState(0)
+  const [saved, setSaved] = useState(false)
+
+  const selectedProject = projects.find(p => p.id === selectedId)
+  const recentFeedback = assigned.flatMap(p => (p.instructorComments||[]).map(c => ({ ...c, projectTitle:p.title }))).sort((a,b)=>new Date(b.at)-new Date(a.at)).slice(0,4)
+
+  const submit = () => {
+    if (!comment.trim() && rating === 0) return
+    if (comment.trim()) {
+      const fb = { id:Date.now().toString(), text:comment.trim(), author:user.email, at:new Date().toISOString() }
+      setProjects(p => p.map(x => x.id === selectedId ? { ...x, instructorComments:[...(x.instructorComments||[]),fb] } : x))
+      pushNotif(`Feedback posted on "${selectedProject?.title}".`)
+    }
+    if (rating > 0) {
+      setProjects(p => p.map(x => x.id === selectedId ? { ...x, rating } : x))
+    }
+    setComment(''); setRating(0); setSaved(true)
+    setTimeout(() => setSaved(false), 2000)
+  }
+
+  return (
+    <Modal title="Quick Feedback Center" onClose={onClose} wide>
+      <div className="space-y-5">
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div>
+            <Sel label="Select Project" value={selectedId} onChange={e => setSelectedId(e.target.value)}>
+              {assigned.map(p => <option key={p.id} value={p.id}>{p.title} ({p.course})</option>)}
+            </Sel>
+          </div>
+          <div>
+            <p className="text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Rating</p>
+            <StarRating value={rating} onChange={setRating}/>
+          </div>
+        </div>
+        <Textarea label="Feedback Comment" value={comment} onChange={e => setComment(e.target.value)} placeholder="Leave feedback for this project…" rows={3}/>
+        <div className="flex items-center gap-3">
+          <Btn onClick={submit} disabled={!comment.trim() && rating===0}><Icon d={IC.send} size={13}/>Post Feedback</Btn>
+          {saved && <span className="text-sm font-medium text-green-600 dark:text-green-400 flex items-center gap-1"><Icon d={IC.check} size={13}/>Saved!</span>}
+        </div>
+
+        {recentFeedback.length > 0 && (
+          <div>
+            <p className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">Recent Feedback</p>
+            <div className="space-y-2">
+              {recentFeedback.map(fb => (
+                <div key={fb.id} className="rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-700/30 px-3 py-2">
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="text-xs font-medium text-blue-700 dark:text-blue-300 truncate">{fb.projectTitle}</p>
+                    <p className="text-[10px] text-slate-400 dark:text-slate-500 shrink-0">{new Date(fb.at).toLocaleDateString()}</p>
+                  </div>
+                  <p className="text-sm text-slate-700 dark:text-slate-300 mt-0.5">"{fb.text}"</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+    </Modal>
+  )
+}
+
+// ── Upcoming Meetings ─────────────────────────────────────────────────────────
+function MeetingsWidget({ meetings, onAdd, onRemove }) {
+  return (
+    <Card>
+      <div className="mb-3 flex items-center justify-between">
+        <div className="flex items-center gap-2 text-slate-800 dark:text-slate-200">
+          <Icon d={IC.calendar} size={16}/>
+          <h3 className="font-semibold">Upcoming Meetings</h3>
+        </div>
+        <button onClick={onAdd} className="flex h-6 w-6 items-center justify-center rounded-lg bg-blue-700 text-white hover:bg-blue-800 transition-colors"><Icon d={IC.plus} size={12}/></button>
+      </div>
+      {meetings.length === 0 ? (
+        <div className="flex flex-col items-center gap-2 py-4 text-center">
+          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-slate-100 dark:bg-slate-700 text-slate-400 dark:text-slate-500"><Icon d={IC.calendar} size={20}/></div>
+          <p className="text-sm font-medium text-slate-600 dark:text-slate-400">No meetings scheduled</p>
+          <button onClick={onAdd} className="inline-flex items-center gap-1.5 rounded-lg bg-blue-700 px-3 py-1.5 text-xs font-semibold text-white hover:bg-blue-800 transition-colors"><Icon d={IC.plus} size={12}/>Schedule Meeting</button>
+        </div>
+      ) : (
+        <div className="space-y-2">
+          {meetings.slice(0,4).map(m => (
+            <div key={m.id} className="flex items-center gap-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-700/30 px-3 py-2.5 group hover:border-blue-200 dark:hover:border-blue-700 transition-all">
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400">
+                <Icon d={IC.users} size={14}/>
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-medium text-slate-700 dark:text-slate-300 truncate">{m.student}</p>
+                <p className="text-xs text-slate-400 dark:text-slate-500">{m.date} · {m.time} · {m.topic}</p>
+              </div>
+              <button onClick={() => onRemove(m.id)} className="opacity-0 group-hover:opacity-100 text-slate-300 hover:text-red-500 transition-all"><Icon d={IC.x} size={13}/></button>
+            </div>
+          ))}
+        </div>
+      )}
+    </Card>
+  )
+}
+
+// ── Announcements Management ──────────────────────────────────────────────────
+function AnnouncementsManagement({ announcements, onAdd, onRemove }) {
+  const stats = {
+    total: announcements.length,
+    recent: announcements.filter(a => { const d = new Date(a.date||Date.now()); const w = new Date(); w.setDate(w.getDate()-7); return d>=w }).length,
+    scheduled: announcements.filter(a => a.scheduled).length,
+  }
+  return (
+    <Card>
+      <div className="mb-4 flex items-center justify-between">
+        <div className="flex items-center gap-2 text-slate-800 dark:text-slate-200"><Icon d={IC.megaphone} size={16}/><h3 className="font-semibold">Announcements</h3></div>
+        <button onClick={onAdd} className="inline-flex items-center gap-1.5 rounded-lg bg-blue-700 px-3 py-1.5 text-xs font-semibold text-white hover:bg-blue-800 transition-colors"><Icon d={IC.plus} size={12}/>Post</button>
+      </div>
+
+      <div className="grid grid-cols-3 gap-2 mb-4">
+        {[
+          { label:'Total', value:stats.total, color:'text-blue-700 dark:text-blue-400', bg:'bg-blue-50 dark:bg-blue-950/40' },
+          { label:'This Week', value:stats.recent, color:'text-green-700 dark:text-green-400', bg:'bg-green-50 dark:bg-green-950/40' },
+          { label:'Scheduled', value:stats.scheduled, color:'text-amber-700 dark:text-amber-400', bg:'bg-amber-50 dark:bg-amber-950/40' },
+        ].map(s => (
+          <div key={s.label} className={`rounded-xl p-3 text-center ${s.bg}`}>
+            <p className={`text-xl font-bold ${s.color}`}>{s.value}</p>
+            <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5">{s.label}</p>
+          </div>
+        ))}
+      </div>
+
+      {announcements.length === 0 ? <EmptyState message="No announcements yet." /> : (
+        <div className="space-y-2">
+          {announcements.slice(0,4).map(a => {
+            const typeStyle = {
+              info:    { bg:'bg-blue-50 dark:bg-blue-950/40 border-blue-200 dark:border-blue-800',   text:'text-blue-700 dark:text-blue-300' },
+              warning: { bg:'bg-amber-50 dark:bg-amber-950/40 border-amber-200 dark:border-amber-800',text:'text-amber-700 dark:text-amber-300' },
+              success: { bg:'bg-green-50 dark:bg-green-950/40 border-green-200 dark:border-green-800', text:'text-green-700 dark:text-green-300' },
+            }
+            const s = typeStyle[a.type] || typeStyle.info
+            return (
+              <div key={a.id} className={`rounded-lg border px-3 py-2.5 group ${s.bg}`}>
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0 flex-1">
+                    <p className={`text-xs font-semibold ${s.text}`}>{a.title}</p>
+                    <p className="text-xs text-slate-600 dark:text-slate-300 mt-0.5 line-clamp-1">{a.message}</p>
+                    <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5">{a.date}{a.scheduled?' · Scheduled':''}</p>
+                  </div>
+                  <button onClick={() => onRemove(a.id)} className="opacity-0 group-hover:opacity-100 text-slate-400 hover:text-red-500 transition-all shrink-0"><Icon d={IC.x} size={12}/></button>
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      )}
+    </Card>
+  )
+}
+
+
+
+
 // ── Overview ──────────────────────────────────────────────────────────────────
-function Overview({ user, profile, linkedCourses, notifications, projects, setTab }) {
+function Overview({ user, profile, linkedCourses, notifications, projects, setTab, openFeedbackCenter, openMeetingModal, openAnnouncementModal }) {
   const assigned = projects.filter(p => (p.collaborators || []).some(c => c.email === user.email && c.status === 'accepted'))
   const unread = unreadCount(notifications)
   const invites = projects.filter(p => (p.collaborators || []).some(c => c.email === user.email && c.status === 'pending')).length
+  const supervisionStats = buildSupervisionStats(user, projects)
 
   const stats = [
     { label: 'Linked Courses',    value: linkedCourses.length, color: 'text-blue-700 dark:text-blue-400',   bg: 'bg-blue-50 dark:bg-blue-950/40',   tab: 'courses' },
@@ -166,6 +731,8 @@ function Overview({ user, profile, linkedCourses, notifications, projects, setTa
   return (
     <div className="space-y-6">
       {/* Hero */}
+
+
       <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-blue-700 via-blue-600 to-blue-500 px-8 py-10 sm:px-12 sm:py-14 shadow-lg shadow-blue-200 dark:shadow-blue-900/30">
         <div className="pointer-events-none absolute -right-12 -top-12 h-56 w-56 rounded-full bg-white/10 blur-3xl" />
         <div className="pointer-events-none absolute -bottom-10 -left-10 h-48 w-48 rounded-full bg-white/10 blur-3xl" />
@@ -236,7 +803,7 @@ function Overview({ user, profile, linkedCourses, notifications, projects, setTa
         </Card>
       </div>
 
-      <Card>
+     <Card>
         <div className="mb-3 flex items-center justify-between">
           <h3 className="font-semibold text-slate-800 dark:text-slate-200">Assigned Projects</h3>
           <button onClick={() => setTab('projects')} className="text-xs text-blue-600 dark:text-blue-400 hover:underline">View all</button>
@@ -258,6 +825,24 @@ function Overview({ user, profile, linkedCourses, notifications, projects, setTa
           </div>
         }
       </Card>
+
+      {/* ── Quick Actions ── */}
+      <InstructorQuickActions setTab={setTab} openFeedbackCenter={openFeedbackCenter} openMeetingModal={openMeetingModal} openAnnouncementModal={openAnnouncementModal}/>
+
+      {/* ── Student Performance + At-Risk ── */}
+      <div className="grid gap-4 lg:grid-cols-2">
+        <StudentPerformanceWidget stats={supervisionStats} setTab={setTab}/>
+        <AtRiskPanel stats={supervisionStats} setTab={setTab}/>
+      </div>
+
+      {/* ── Pending Reviews + Progress ── */}
+      <div className="grid gap-4 lg:grid-cols-2">
+        <PendingReviewsWidget stats={supervisionStats} setTab={setTab}/>
+        <StudentProgressTracker stats={supervisionStats}/>
+      </div>
+
+      {/* ── Recent Activity ── */}
+      <InstructorActivityFeed user={user} projects={projects} notifications={notifications}/>
     </div>
   )
 }
@@ -1201,6 +1786,13 @@ export default function InstructorDashboard() {
   const [tab, setTab] = useState('overview')
   const [sidebarOpen, setSidebar] = useState(false)
   const [settingsTab, setSettingsTab] = useState('appearance')
+  const [showFeedbackCenter, setShowFeedbackCenter] = useState(false)
+  const [showMeetingModal, setShowMeetingModal] = useState(false)
+  const [showAnnouncementModal, setShowAnnouncementModal] = useState(false)
+  const [meetings, setMeetings] = useLS('instructor_meetings_' + rawUser.email, [])
+  const [announcements, setAnnouncements] = useLS('instructor_announcements_' + rawUser.email, [])
+  const [meetingForm, setMeetingForm] = useState({ student:'', date:'', time:'', topic:'' })
+  const [announcementForm, setAnnouncementForm] = useState({ title:'', message:'', type:'info', scheduled:false })
 
   const [profile, setProfileLS] = useLS('instructor_profile_' + rawUser.email, { firstName: rawUser.firstName || '', lastName: rawUser.lastName || '', bio: '', research: '', education: '' })
   const [linkedCourses, setLinkedCoursesLS] = useLS('instructor_courses_' + rawUser.email, ['Bachelor Project'])
@@ -1221,6 +1813,7 @@ export default function InstructorDashboard() {
     { id: 'profile',       label: 'My Profile',         icon: IC.user },
     { id: 'courses',       label: 'My Courses',         icon: IC.book },
     { id: 'projects',      label: 'Projects',           icon: IC.folder },
+    { id: 'analytics',     label: 'Supervision Analytics', icon: IC.target },
     { id: 'invitations',   label: 'Invitations',        icon: IC.users, badge: invites },
     { id: 'notifications', label: 'Notifications',      icon: IC.bell, badge: unread },
     { id: 'messages',      label: 'Messages',           icon: IC.chat },
@@ -1423,7 +2016,8 @@ export default function InstructorDashboard() {
         {/* Main content */}
         <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 bg-slate-50 dark:bg-slate-900/50">
           <div className="mx-auto w-full max-w-5xl">
-            {tab === 'overview'      && <Overview user={rawUser} profile={profile} linkedCourses={linkedCourses} notifications={notifications} projects={projects} setTab={setTab} />}
+            {tab === 'overview'      && <Overview user={rawUser} profile={profile} linkedCourses={linkedCourses} notifications={notifications} projects={projects} setTab={setTab} openFeedbackCenter={() => setShowFeedbackCenter(true)} openMeetingModal={() => setShowMeetingModal(true)} openAnnouncementModal={() => setShowAnnouncementModal(true)}/>}
+            {tab === 'analytics'     && <SupervisionAnalyticsSection user={rawUser} projects={projects}/>}
             {tab === 'profile'       && <ProfileSection user={rawUser} profile={profile} setProfile={setProfile} />}
             {tab === 'courses'       && <CoursesSection linkedCourses={linkedCourses} setLinkedCourses={setLinkedCourses} pushNotif={pushNotif} />}
             {tab === 'projects'      && <ProjectsSection user={rawUser} projects={projects} setProjects={setProjects} pushNotif={pushNotif} />}
@@ -1432,10 +2026,76 @@ export default function InstructorDashboard() {
             {tab === 'messages'      && <MessagesSection user={rawUser} pushNotif={pushNotif} />}
             {tab === 'recommended'   && <RecommendedSection user={rawUser} projects={projects} linkedCourses={linkedCourses} />}
             {tab === 'portfolios'    && <StudentPortfoliosSection />}
-            {tab === 'settings'      && <SettingsSection rawUser={rawUser} initialTab={settingsTab} />}
+           {tab === 'settings'      && <SettingsSection rawUser={rawUser} initialTab={settingsTab} />}
+
+            {/* Meetings & Announcements widgets always accessible from analytics / overview */}
+            {tab === 'analytics' && (
+              <div className="grid gap-4 lg:grid-cols-2 mt-6">
+                <MeetingsWidget meetings={meetings} onAdd={() => setShowMeetingModal(true)} onRemove={id => setMeetings(p => p.filter(m => m.id !== id))}/>
+                <AnnouncementsManagement announcements={announcements} onAdd={() => setShowAnnouncementModal(true)} onRemove={id => setAnnouncements(p => p.filter(a => a.id !== id))}/>
+              </div>
+            )}
           </div>
         </main>
       </div>
+
+      {/* ── Feedback Center Modal ── */}
+      {showFeedbackCenter && (
+        <QuickFeedbackCenter user={rawUser} projects={projects} setProjects={setProjects} pushNotif={pushNotif} onClose={() => setShowFeedbackCenter(false)}/>
+      )}
+
+      {/* ── Schedule Meeting Modal ── */}
+      {showMeetingModal && (
+        <Modal title="Schedule Meeting" onClose={() => setShowMeetingModal(false)}>
+          <div className="space-y-4">
+            <Input label="Student / Group" value={meetingForm.student} onChange={e => setMeetingForm(p => ({...p, student:e.target.value}))} placeholder="e.g. Ahmed Ali or Group 7"/>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <Input label="Date" type="date" value={meetingForm.date} onChange={e => setMeetingForm(p => ({...p, date:e.target.value}))}/>
+              <Input label="Time" type="time" value={meetingForm.time} onChange={e => setMeetingForm(p => ({...p, time:e.target.value}))}/>
+            </div>
+            <Input label="Topic" value={meetingForm.topic} onChange={e => setMeetingForm(p => ({...p, topic:e.target.value}))} placeholder="e.g. Thesis progress review"/>
+            <div className="flex gap-2 pt-2 border-t border-slate-100 dark:border-slate-700">
+              <Btn onClick={() => {
+                if (!meetingForm.student || !meetingForm.date) return alert('Student and date are required.')
+                setMeetings(p => [...p, { ...meetingForm, id:Date.now().toString() }])
+                pushNotif(`Meeting with ${meetingForm.student} scheduled for ${meetingForm.date}.`)
+                setMeetingForm({ student:'', date:'', time:'', topic:'' })
+                setShowMeetingModal(false)
+              }}><Icon d={IC.check} size={13}/>Save Meeting</Btn>
+              <Btn variant="secondary" onClick={() => setShowMeetingModal(false)}>Cancel</Btn>
+            </div>
+          </div>
+        </Modal>
+      )}
+
+      {/* ── Post Announcement Modal ── */}
+      {showAnnouncementModal && (
+        <Modal title="Post Announcement" onClose={() => setShowAnnouncementModal(false)}>
+          <div className="space-y-4">
+            <Input label="Title *" value={announcementForm.title} onChange={e => setAnnouncementForm(p => ({...p, title:e.target.value}))} placeholder="e.g. Office hours updated"/>
+            <Textarea label="Message *" value={announcementForm.message} onChange={e => setAnnouncementForm(p => ({...p, message:e.target.value}))} placeholder="Write your announcement…" rows={3}/>
+            <Sel label="Type" value={announcementForm.type} onChange={e => setAnnouncementForm(p => ({...p, type:e.target.value}))}>
+              <option value="info">Info</option>
+              <option value="warning">Warning</option>
+              <option value="success">Success</option>
+            </Sel>
+            <div className="flex items-center gap-2">
+              <input type="checkbox" id="sched" checked={announcementForm.scheduled} onChange={e => setAnnouncementForm(p => ({...p, scheduled:e.target.checked}))} className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"/>
+              <label htmlFor="sched" className="text-sm text-slate-700 dark:text-slate-300">Mark as scheduled (future)</label>
+            </div>
+            <div className="flex gap-2 pt-2 border-t border-slate-100 dark:border-slate-700">
+              <Btn onClick={() => {
+                if (!announcementForm.title || !announcementForm.message) return alert('Title and message are required.')
+                setAnnouncements(p => [...p, { ...announcementForm, id:Date.now().toString(), date:new Date().toISOString().slice(0,10) }])
+                pushNotif(`Announcement "${announcementForm.title}" posted.`)
+                setAnnouncementForm({ title:'', message:'', type:'info', scheduled:false })
+                setShowAnnouncementModal(false)
+              }}><Icon d={IC.megaphone} size={13}/>Post Announcement</Btn>
+              <Btn variant="secondary" onClick={() => setShowAnnouncementModal(false)}>Cancel</Btn>
+            </div>
+          </div>
+        </Modal>
+      )}
     </div>
   )
 }
