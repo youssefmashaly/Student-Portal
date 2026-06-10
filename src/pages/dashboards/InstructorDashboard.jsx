@@ -64,6 +64,13 @@ const IC = {
   layers:      'M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5',
   arrowRight:  'M5 12h14M12 5l7 7-7 7',
   info:        'M12 22a10 10 0 100-20 10 10 0 000 20zM12 16v-4M12 8h.01',
+  bookOpen:    'M2 3h6a4 4 0 014 4v14a3 3 0 00-3-3H2zM22 3h-6a4 4 0 00-4 4v14a3 3 0 013-3h7z',
+  paperclip:   'M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48',
+  video:       'M23 7l-7 5 7 5V7zM1 5h15a2 2 0 012 2v10a2 2 0 01-2 2H1V5z',
+  externalLink:'M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6M15 3h6v6M10 14L21 3',
+  download2:   'M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3',
+  filter:      'M22 3H2l8 9.46V19l4 2V12.46L22 3z',
+  inbox:       'M22 12h-6l-2 3H10l-2-3H2M5.45 5.11L2 12v6a2 2 0 002 2h16a2 2 0 002-2v-6l-3.45-6.89A2 2 0 0016.76 4H7.24a2 2 0 00-1.79 1.11z',
 }
 
 // ── Shared primitives (identical to StudentDashboard) ─────────────────────────
@@ -202,11 +209,18 @@ function InstructorQuickActions({ setTab, openFeedbackCenter, openMeetingModal, 
     { label:'Post Announcement',  icon:IC.megaphone,  fn:openAnnouncementModal,      color:'bg-amber-50 dark:bg-amber-950/40 hover:bg-amber-100 dark:hover:bg-amber-900/50 text-amber-700 dark:text-amber-300 border-amber-100 dark:border-amber-900' },
     { label:'Quick Feedback',     icon:IC.edit,       fn:openFeedbackCenter,         color:'bg-rose-50 dark:bg-rose-950/40 hover:bg-rose-100 dark:hover:bg-rose-900/50 text-rose-700 dark:text-rose-300 border-rose-100 dark:border-rose-900' },
     { label:'View Analytics',     icon:IC.target,     fn:() => setTab('analytics'),  color:'bg-slate-50 dark:bg-slate-700/40 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-600' },
+    { label:'Review Queue',       icon:IC.inbox,      fn:() => setTab('review-queue'),color:'bg-indigo-50 dark:bg-indigo-950/40 hover:bg-indigo-100 dark:hover:bg-indigo-900/50 text-indigo-700 dark:text-indigo-300 border-indigo-100 dark:border-indigo-900' },
+    { label:'Resources',          icon:IC.bookOpen,   fn:() => setTab('resources'),   color:'bg-teal-50 dark:bg-teal-950/40 hover:bg-teal-100 dark:hover:bg-teal-900/50 text-teal-700 dark:text-teal-300 border-teal-100 dark:border-teal-900' },
+    { label:'Export Report',      icon:IC.download2,  fn:() => {
+        const assigned = window.__instructor_projects || []
+        const blob = new Blob([JSON.stringify(assigned.map(p=>({title:p.title,course:p.course,owner:p.owner,rating:p.rating,tasks:(p.tasks||[]).length,feedback:(p.instructorComments||[]).length})), null, 2)], {type:'application/json'})
+        const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'instructor-report.json'; a.click()
+      }, color:'bg-emerald-50 dark:bg-emerald-950/40 hover:bg-emerald-100 dark:hover:bg-emerald-900/50 text-emerald-700 dark:text-emerald-300 border-emerald-100 dark:border-emerald-900' },
   ]
   return (
     <Card>
       <h3 className="mb-3 font-semibold text-slate-800 dark:text-slate-200">Quick Actions</h3>
-      <div className="grid grid-cols-3 gap-2">
+      <div className="grid grid-cols-3 gap-2 sm:grid-cols-4 lg:grid-cols-3 xl:grid-cols-4">
         {actions.map(a => (
           <button key={a.label} onClick={a.fn}
             className={`flex flex-col items-center gap-1.5 rounded-xl border p-3 text-center transition-all duration-150 hover:-translate-y-0.5 hover:shadow-sm active:scale-95 ${a.color}`}>
@@ -711,11 +725,349 @@ function AnnouncementsManagement({ announcements, onAdd, onRemove }) {
   )
 }
 
+// ── Review Queue ──────────────────────────────────────────────────────────────
+function ReviewQueueSection({ user, projects, setProjects, pushNotif }) {
+  const [filter, setFilter] = useState('all')
+  const [selected, setSelected] = useState(null)
+  const [modal, setModal] = useState(null)
 
+  const assigned = projects.filter(p => (p.collaborators || []).some(c => c.email === user.email && c.status === 'accepted'))
 
+  const queue = assigned.flatMap(p => {
+    const items = []
+    const hasFinalThesis = (p.thesisDrafts || []).some(d => d.isFinal)
+    const completedUnreviewed = (p.tasks || []).filter(t => t.status === 'completed' && !t.instructorComment)
+    const noProjectFeedback = !(p.instructorComments || []).length
+
+    if (hasFinalThesis) items.push({ id:'thesis_'+p.id, project:p, type:'Thesis Review', priority:'red', priorityLabel:'High', desc:`Final thesis draft ready for review`, course:p.course })
+    completedUnreviewed.forEach(t => items.push({ id:'task_'+t.id+'_'+p.id, project:p, type:'Task Review', priority:'yellow', priorityLabel:'Medium', desc:`"${t.title}" completed — awaiting comment`, course:p.course, task:t }))
+    if (noProjectFeedback && !hasFinalThesis) items.push({ id:'proj_'+p.id, project:p, type:'Project Evaluation', priority:'slate', priorityLabel:'Low', desc:`No feedback given yet`, course:p.course })
+
+    return items
+  }).sort((a,b) => { const o = {red:0,yellow:1,slate:2}; return (o[a.priority]||2)-(o[b.priority]||2) })
+
+  const filtered = filter === 'all' ? queue : queue.filter(i => i.priorityLabel.toLowerCase() === filter)
+
+  const counts = {
+    all: queue.length,
+    high: queue.filter(i=>i.priority==='red').length,
+    medium: queue.filter(i=>i.priority==='yellow').length,
+    low: queue.filter(i=>i.priority==='slate').length,
+  }
+
+  return (
+    <div className="space-y-6">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h2 className="text-2xl font-bold text-slate-900 dark:text-white">Review Queue</h2>
+          <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">{queue.length} item{queue.length!==1?'s':''} awaiting your review.</p>
+        </div>
+      </div>
+
+      {/* Filter tabs */}
+      <div className="flex gap-2 flex-wrap">
+        {[
+          { id:'all',    label:`All (${counts.all})` },
+          { id:'high',   label:`High (${counts.high})` },
+          { id:'medium', label:`Medium (${counts.medium})` },
+          { id:'low',    label:`Low (${counts.low})` },
+        ].map(f => (
+          <button key={f.id} onClick={() => setFilter(f.id)}
+            className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-all ${filter===f.id ? 'bg-blue-700 text-white shadow-sm' : 'border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:border-blue-300 dark:hover:border-blue-700'}`}>
+            {f.label}
+          </button>
+        ))}
+      </div>
+
+      {filtered.length === 0 ? (
+        <Card>
+          <div className="flex flex-col items-center gap-3 py-10 text-center">
+            <div className="flex h-14 w-14 items-center justify-center rounded-full bg-green-50 dark:bg-green-950/40 text-green-500"><Icon d={IC.check} size={24}/></div>
+            <p className="font-medium text-slate-600 dark:text-slate-400">No pending reviews</p>
+            <p className="text-sm text-slate-400 dark:text-slate-500">You're all caught up!</p>
+          </div>
+        </Card>
+      ) : (
+        <div className="space-y-3">
+          {filtered.map(item => (
+            <Card key={item.id} className="hover:border-blue-200 dark:hover:border-blue-700 transition-all">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                <div className="flex items-start gap-3 min-w-0">
+                  <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${item.priority==='red'?'bg-red-50 dark:bg-red-950/40 text-red-600 dark:text-red-400':item.priority==='yellow'?'bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400':'bg-slate-50 dark:bg-slate-700 text-slate-500 dark:text-slate-400'}`}>
+                    <Icon d={item.type==='Thesis Review'?IC.fileText:item.type==='Task Review'?IC.check:IC.folder} size={18}/>
+                  </div>
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-2 mb-1">
+                      <p className="font-semibold text-slate-800 dark:text-slate-200">{item.project.title}</p>
+                      <Badge color="blue">{item.course}</Badge>
+                      <Badge color={item.priority}>{item.priorityLabel} Priority</Badge>
+                    </div>
+                    <p className="text-sm text-slate-500 dark:text-slate-400">{item.type} · {item.desc}</p>
+                    <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">Owner: {item.project.owner}</p>
+                  </div>
+                </div>
+                <Btn size="sm" onClick={() => { setSelected(item.project); setModal('view') }}>
+                  <Icon d={IC.eye} size={13}/>Review
+                </Btn>
+              </div>
+            </Card>
+          ))}
+        </div>
+      )}
+
+      {modal === 'view' && selected && (
+        <ProjectFeedbackModal project={projects.find(p => p.id === selected.id) || selected} user={user} setProjects={setProjects} pushNotif={pushNotif} onClose={() => setModal(null)}/>
+      )}
+    </div>
+  )
+}
+
+// ── Course Analytics ──────────────────────────────────────────────────────────
+function CourseAnalyticsSection({ user, projects, linkedCourses }) {
+  const assigned = projects.filter(p => (p.collaborators||[]).some(c=>c.email===user.email&&c.status==='accepted'))
+
+  const byCourse = linkedCourses.map(course => {
+    const courseProjects = assigned.filter(p => p.course === course)
+    const students = [...new Set(courseProjects.map(p=>p.owner))]
+    const completed = courseProjects.filter(p=>(p.tasks||[]).length>0&&(p.tasks||[]).every(t=>t.status==='completed'))
+    const avgProgress = courseProjects.length > 0 ? Math.round(
+      courseProjects.reduce((sum, p) => {
+        const tasks = p.tasks||[]
+        if (tasks.length===0) return sum+50
+        return sum+Math.round((tasks.filter(t=>t.status==='completed').length/tasks.length)*100)
+      }, 0) / courseProjects.length
+    ) : 0
+    const avgRating = courseProjects.filter(p=>p.rating>0).length > 0
+      ? Math.round((courseProjects.reduce((s,p)=>s+(p.rating||0),0)/courseProjects.filter(p=>p.rating>0).length)*10)/10
+      : 0
+    const withFeedback = courseProjects.filter(p=>(p.instructorComments||[]).length>0)
+    return { course, projects:courseProjects, students, completed, avgProgress, avgRating, withFeedback }
+  }).filter(c => c.projects.length > 0)
+
+  const totals = {
+    students: [...new Set(assigned.map(p=>p.owner))].length,
+    projects: assigned.length,
+    completed: assigned.filter(p=>(p.tasks||[]).length>0&&(p.tasks||[]).every(t=>t.status==='completed')).length,
+    avgProgress: assigned.length > 0 ? Math.round(assigned.reduce((sum,p)=>{
+      const tasks=p.tasks||[]; if(tasks.length===0) return sum+50
+      return sum+Math.round((tasks.filter(t=>t.status==='completed').length/tasks.length)*100)
+    },0)/assigned.length) : 0,
+  }
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h2 className="text-2xl font-bold text-slate-900 dark:text-white">Course Analytics</h2>
+        <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Performance across all your linked courses.</p>
+      </div>
+
+      {/* Overall KPIs */}
+      <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+        {[
+          { label:'Students Supervised', value:totals.students,     color:'text-blue-700 dark:text-blue-400',   bg:'bg-blue-50 dark:bg-blue-950/40',   icon:IC.users },
+          { label:'Active Projects',     value:totals.projects,     color:'text-purple-700 dark:text-purple-400',bg:'bg-purple-50 dark:bg-purple-950/40',icon:IC.folder },
+          { label:'Completed Projects',  value:totals.completed,    color:'text-green-700 dark:text-green-400', bg:'bg-green-50 dark:bg-green-950/40', icon:IC.check },
+          { label:'Avg. Progress',       value:`${totals.avgProgress}%`,color:'text-amber-700 dark:text-amber-400', bg:'bg-amber-50 dark:bg-amber-950/40', icon:IC.target },
+        ].map(k => (
+          <div key={k.label} className={`rounded-xl p-5 shadow-sm ${k.bg} hover:-translate-y-0.5 hover:shadow-md transition-all`}>
+            <div className="flex items-center justify-between mb-2"><Icon d={k.icon} size={14}/></div>
+            <p className={`text-3xl font-bold ${k.color}`}>{k.value}</p>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 leading-tight">{k.label}</p>
+          </div>
+        ))}
+      </div>
+
+      {/* Per-course breakdown */}
+      {byCourse.length === 0 ? (
+        <Card><EmptyState message="No assigned projects found for your linked courses." /></Card>
+      ) : (
+        <div className="space-y-4">
+          {byCourse.map(c => {
+            const completionRate = c.projects.length > 0 ? Math.round((c.completed.length/c.projects.length)*100) : 0
+            const feedbackRate = c.projects.length > 0 ? Math.round((c.withFeedback.length/c.projects.length)*100) : 0
+            const barColor = c.avgProgress>=70?'bg-green-500':c.avgProgress>=40?'bg-blue-600':'bg-amber-500'
+            return (
+              <Card key={c.course}>
+                <div className="flex flex-wrap items-start justify-between gap-3 mb-4">
+                  <div>
+                    <div className="flex items-center gap-2 mb-1">
+                      <h3 className="font-semibold text-slate-800 dark:text-slate-200">{c.course}</h3>
+                      <Badge color="blue">{c.projects.length} project{c.projects.length!==1?'s':''}</Badge>
+                      <Badge color="slate">{c.students.length} student{c.students.length!==1?'s':''}</Badge>
+                    </div>
+                    {c.avgRating > 0 && <p className="text-xs text-slate-400 dark:text-slate-500">Avg. rating: ★ {c.avgRating}/5</p>}
+                  </div>
+                  <div className="text-right">
+                    <p className={`text-2xl font-bold ${c.avgProgress>=70?'text-green-700 dark:text-green-400':c.avgProgress>=40?'text-blue-700 dark:text-blue-400':'text-amber-700 dark:text-amber-400'}`}>{c.avgProgress}%</p>
+                    <p className="text-xs text-slate-400 dark:text-slate-500">avg progress</p>
+                  </div>
+                </div>
+                <div className="space-y-3">
+                  <div>
+                    <div className="flex items-center justify-between mb-1"><span className="text-xs text-slate-500 dark:text-slate-400">Average Progress</span><span className="text-xs font-bold text-slate-600 dark:text-slate-400">{c.avgProgress}%</span></div>
+                    <div className="h-2 w-full rounded-full bg-slate-100 dark:bg-slate-700 overflow-hidden"><div className={`h-2 rounded-full transition-all duration-700 ${barColor}`} style={{width:`${c.avgProgress}%`}}/></div>
+                  </div>
+                  <div>
+                    <div className="flex items-center justify-between mb-1"><span className="text-xs text-slate-500 dark:text-slate-400">Completion Rate</span><span className="text-xs font-bold text-slate-600 dark:text-slate-400">{completionRate}%</span></div>
+                    <div className="h-2 w-full rounded-full bg-slate-100 dark:bg-slate-700 overflow-hidden"><div className="h-2 rounded-full bg-green-500 transition-all duration-700" style={{width:`${completionRate}%`}}/></div>
+                  </div>
+                  <div>
+                    <div className="flex items-center justify-between mb-1"><span className="text-xs text-slate-500 dark:text-slate-400">Feedback Coverage</span><span className="text-xs font-bold text-slate-600 dark:text-slate-400">{feedbackRate}%</span></div>
+                    <div className="h-2 w-full rounded-full bg-slate-100 dark:bg-slate-700 overflow-hidden"><div className="h-2 rounded-full bg-purple-600 transition-all duration-700" style={{width:`${feedbackRate}%`}}/></div>
+                  </div>
+                </div>
+                {c.students.length > 0 && (
+                  <div className="mt-3 pt-3 border-t border-slate-100 dark:border-slate-700">
+                    <p className="text-xs text-slate-400 dark:text-slate-500 mb-2">Students</p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {c.students.slice(0,6).map(s => (
+                        <span key={s} className="inline-flex items-center rounded-full bg-blue-50 dark:bg-blue-950/40 border border-blue-100 dark:border-blue-900 px-2.5 py-0.5 text-xs font-medium text-blue-700 dark:text-blue-300">{s}</span>
+                      ))}
+                      {c.students.length > 6 && <span className="text-xs text-slate-400 dark:text-slate-500">+{c.students.length-6} more</span>}
+                    </div>
+                  </div>
+                )}
+              </Card>
+            )
+          })}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ── Resource Management ───────────────────────────────────────────────────────
+function ResourceManagementSection({ user }) {
+  const [resources, setResources] = useLS('instructor_resources_' + user.email, [])
+  const [showForm, setShowForm] = useState(false)
+  const [form, setForm] = useState({ title:'', type:'lecture', course:'Bachelor Project', description:'', url:'' })
+  const [search, setSearch] = useState('')
+  const [filterType, setFilterType] = useState('')
+
+  const typeConfig = {
+    lecture:    { label:'Lecture',    icon:IC.bookOpen,  color:'bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400',   badge:'blue' },
+    tutorial:   { label:'Tutorial',   icon:IC.book,      color:'bg-purple-50 dark:bg-purple-950/40 text-purple-600 dark:text-purple-400',badge:'purple' },
+    assignment: { label:'Assignment', icon:IC.inbox,     color:'bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400', badge:'yellow' },
+    reference:  { label:'Reference',  icon:IC.paperclip, color:'bg-green-50 dark:bg-green-950/40 text-green-600 dark:text-green-400', badge:'green' },
+    video:      { label:'Video',      icon:IC.video,     color:'bg-slate-800 dark:bg-slate-700 text-white',                          badge:'slate' },
+    link:       { label:'Link',       icon:IC.externalLink,color:'bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400',  badge:'red' },
+  }
+
+  const types = Object.keys(typeConfig)
+  const displayed = resources
+    .filter(r => r.title.toLowerCase().includes(search.toLowerCase()) || r.course.toLowerCase().includes(search.toLowerCase()))
+    .filter(r => !filterType || r.type === filterType)
+    .sort((a,b) => new Date(b.uploadedAt||0) - new Date(a.uploadedAt||0))
+
+  const counts = types.reduce((acc, t) => ({ ...acc, [t]: resources.filter(r=>r.type===t).length }), {})
+
+  const save = () => {
+    if (!form.title.trim()) return alert('Title is required.')
+    setResources(p => [...p, { ...form, id:Date.now().toString(), uploadedAt:new Date().toISOString() }])
+    setForm({ title:'', type:'lecture', course:'Bachelor Project', description:'', url:'' })
+    setShowForm(false)
+  }
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-2xl font-bold text-slate-900 dark:text-white">Resource Management</h2>
+          <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Manage your uploaded materials and references.</p>
+        </div>
+        <Btn onClick={() => setShowForm(p=>!p)}><Icon d={IC.plus} size={13}/>{showForm?'Cancel':'Add Resource'}</Btn>
+      </div>
+
+      {/* Summary counts */}
+      <div className="grid grid-cols-3 gap-3 sm:grid-cols-6">
+        {types.map(t => {
+          const tc = typeConfig[t]
+          return (
+            <button key={t} onClick={() => setFilterType(filterType===t?'':t)}
+              className={`rounded-xl p-3 text-center transition-all border hover:-translate-y-0.5 hover:shadow-sm ${filterType===t?'border-blue-500 ring-1 ring-blue-500':tc.color.includes('bg-slate-8')?'border-slate-700 dark:border-slate-600':'border-slate-100 dark:border-slate-700'} ${tc.color}`}>
+              <Icon d={tc.icon} size={16}/>
+              <p className="text-lg font-bold mt-1">{counts[t]||0}</p>
+              <p className="text-[10px] font-semibold leading-tight mt-0.5">{tc.label}</p>
+            </button>
+          )
+        })}
+      </div>
+
+      {/* Add form */}
+      {showForm && (
+        <Card>
+          <h3 className="font-semibold text-slate-800 dark:text-slate-200 mb-4">Add New Resource</h3>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <Input label="Title *" value={form.title} onChange={e => setForm(p=>({...p,title:e.target.value}))} placeholder="e.g. Week 1 Lecture Slides"/>
+            <Sel label="Type" value={form.type} onChange={e => setForm(p=>({...p,type:e.target.value}))}>
+              {types.map(t => <option key={t} value={t}>{typeConfig[t].label}</option>)}
+            </Sel>
+            <Sel label="Course" value={form.course} onChange={e => setForm(p=>({...p,course:e.target.value}))}>
+              {ALL_COURSES.map(c => <option key={c}>{c}</option>)}
+            </Sel>
+            <Input label="URL / Link (optional)" value={form.url} onChange={e => setForm(p=>({...p,url:e.target.value}))} placeholder="https://…"/>
+          </div>
+          <Textarea label="Description (optional)" value={form.description} onChange={e => setForm(p=>({...p,description:e.target.value}))} placeholder="Brief description…" rows={2} />
+          <div className="flex gap-2 mt-4 pt-3 border-t border-slate-100 dark:border-slate-700">
+            <Btn onClick={save}><Icon d={IC.check} size={13}/>Save Resource</Btn>
+            <Btn variant="secondary" onClick={() => setShowForm(false)}>Cancel</Btn>
+          </div>
+        </Card>
+      )}
+
+      {/* Search + filter */}
+      <div className="flex flex-wrap gap-3">
+        <SearchBar value={search} onChange={setSearch} placeholder="Search resources…"/>
+        {filterType && (
+          <button onClick={() => setFilterType('')}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-xs font-medium text-slate-600 dark:text-slate-300 hover:border-red-300 dark:hover:border-red-700 hover:text-red-500 dark:hover:text-red-400 transition-colors">
+            <Icon d={IC.x} size={11}/>Clear filter: {typeConfig[filterType]?.label}
+          </button>
+        )}
+      </div>
+
+      {/* Resources list */}
+      {displayed.length === 0 ? (
+        <Card>
+          <div className="flex flex-col items-center gap-3 py-10 text-center">
+            <div className="flex h-14 w-14 items-center justify-center rounded-full bg-slate-100 dark:bg-slate-700 text-slate-400 dark:text-slate-500"><Icon d={IC.paperclip} size={24}/></div>
+            <p className="font-medium text-slate-600 dark:text-slate-400">{resources.length===0?'No resources yet':'No resources match your filter'}</p>
+            {resources.length===0 && <button onClick={() => setShowForm(true)} className="inline-flex items-center gap-1.5 rounded-lg bg-blue-700 px-3 py-1.5 text-xs font-semibold text-white hover:bg-blue-800 transition-colors"><Icon d={IC.plus} size={12}/>Add your first resource</button>}
+          </div>
+        </Card>
+      ) : (
+        <div className="space-y-2">
+          {displayed.map(r => {
+            const tc = typeConfig[r.type] || typeConfig.reference
+            return (
+              <div key={r.id} className="flex items-center gap-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-4 py-3 hover:border-blue-200 dark:hover:border-blue-700 transition-all group shadow-sm">
+                <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${tc.color}`}><Icon d={tc.icon} size={15}/></div>
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <p className="font-medium text-slate-800 dark:text-slate-200 truncate">{r.title}</p>
+                    <Badge color={tc.badge}>{tc.label}</Badge>
+                    <Badge color="blue">{r.course}</Badge>
+                  </div>
+                  {r.description && <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5 truncate">{r.description}</p>}
+                  <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">Added {new Date(r.uploadedAt).toLocaleDateString()}</p>
+                </div>
+                <div className="flex items-center gap-1.5 shrink-0">
+                  {r.url && <a href={r.url} target="_blank" rel="noreferrer"><Btn size="sm" variant="secondary"><Icon d={IC.externalLink} size={12}/>Open</Btn></a>}
+                  <button onClick={() => setResources(p=>p.filter(x=>x.id!==r.id))} className="flex h-7 w-7 items-center justify-center rounded-lg text-slate-300 dark:text-slate-600 hover:text-red-500 dark:hover:text-red-400 transition-colors opacity-0 group-hover:opacity-100"><Icon d={IC.trash} size={13}/></button>
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      )}
+    </div>
+  )
+}
 
 // ── Overview ──────────────────────────────────────────────────────────────────
 function Overview({ user, profile, linkedCourses, notifications, projects, setTab, openFeedbackCenter, openMeetingModal, openAnnouncementModal }) {
+
+
   const assigned = projects.filter(p => (p.collaborators || []).some(c => c.email === user.email && c.status === 'accepted'))
   const unread = unreadCount(notifications)
   const invites = projects.filter(p => (p.collaborators || []).some(c => c.email === user.email && c.status === 'pending')).length
@@ -1808,21 +2160,36 @@ export default function InstructorDashboard() {
   const unread = unreadCount(notifications)
   const invites = projects.filter(p => (p.collaborators || []).some(c => c.email === rawUser.email && c.status === 'pending')).length
 
+ const reviewQueueCount = (() => {
+    const assigned = projects.filter(p => (p.collaborators||[]).some(c=>c.email===rawUser.email&&c.status==='accepted'))
+    return assigned.filter(p =>
+      (p.thesisDrafts||[]).some(d=>d.isFinal) ||
+      (p.tasks||[]).some(t=>t.status==='completed'&&!t.instructorComment) ||
+      !(p.instructorComments||[]).length
+    ).length
+  })()
+
   const navItems = [
-    { id: 'overview',      label: 'Overview',           icon: IC.home },
-    { id: 'profile',       label: 'My Profile',         icon: IC.user },
-    { id: 'courses',       label: 'My Courses',         icon: IC.book },
-    { id: 'projects',      label: 'Projects',           icon: IC.folder },
+    { id: 'overview',      label: 'Overview',              icon: IC.home },
+    { id: 'profile',       label: 'My Profile',            icon: IC.user },
+    { id: 'courses',       label: 'My Courses',            icon: IC.book },
+    { id: 'projects',      label: 'Projects',              icon: IC.folder },
+    { id: 'review-queue',  label: 'Review Queue',          icon: IC.inbox, badge: reviewQueueCount },
     { id: 'analytics',     label: 'Supervision Analytics', icon: IC.target },
-    { id: 'invitations',   label: 'Invitations',        icon: IC.users, badge: invites },
-    { id: 'notifications', label: 'Notifications',      icon: IC.bell, badge: unread },
-    { id: 'messages',      label: 'Messages',           icon: IC.chat },
-    { id: 'recommended',   label: 'Recommended',        icon: IC.star },
-    { id: 'portfolios',    label: 'Student Portfolios', icon: IC.heart },
-    { id: 'settings',      label: 'Settings',           icon: IC.settings },
+    { id: 'course-analytics', label: 'Course Analytics',  icon: IC.chart },
+    { id: 'resources',     label: 'Resources',             icon: IC.bookOpen },
+    { id: 'invitations',   label: 'Invitations',           icon: IC.users, badge: invites },
+    { id: 'notifications', label: 'Notifications',         icon: IC.bell, badge: unread },
+    { id: 'messages',      label: 'Messages',              icon: IC.chat },
+    { id: 'recommended',   label: 'Recommended',           icon: IC.star },
+    { id: 'portfolios',    label: 'Student Portfolios',    icon: IC.heart },
+    { id: 'settings',      label: 'Settings',              icon: IC.settings },
   ]
 
   const handleLogout = () => { setTheme(false); logoutUser(); navigate('/') }
+
+  // Expose for export report
+  useEffect(() => { window.__instructor_projects = projects.filter(p => (p.collaborators||[]).some(c=>c.email===rawUser.email&&c.status==='accepted')) }, [projects, rawUser.email])
 
   const [profileDropdown, setProfileDropdown] = useState(false)
   const [notifDropdown, setNotifDropdown] = useState(false)
@@ -2016,8 +2383,11 @@ export default function InstructorDashboard() {
         {/* Main content */}
         <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 bg-slate-50 dark:bg-slate-900/50">
           <div className="mx-auto w-full max-w-5xl">
-            {tab === 'overview'      && <Overview user={rawUser} profile={profile} linkedCourses={linkedCourses} notifications={notifications} projects={projects} setTab={setTab} openFeedbackCenter={() => setShowFeedbackCenter(true)} openMeetingModal={() => setShowMeetingModal(true)} openAnnouncementModal={() => setShowAnnouncementModal(true)}/>}
-            {tab === 'analytics'     && <SupervisionAnalyticsSection user={rawUser} projects={projects}/>}
+           {tab === 'overview'         && <Overview user={rawUser} profile={profile} linkedCourses={linkedCourses} notifications={notifications} projects={projects} setTab={setTab} openFeedbackCenter={() => setShowFeedbackCenter(true)} openMeetingModal={() => setShowMeetingModal(true)} openAnnouncementModal={() => setShowAnnouncementModal(true)}/>}
+            {tab === 'analytics'        && <SupervisionAnalyticsSection user={rawUser} projects={projects}/>}
+            {tab === 'review-queue'     && <ReviewQueueSection user={rawUser} projects={projects} setProjects={setProjects} pushNotif={pushNotif}/>}
+            {tab === 'course-analytics' && <CourseAnalyticsSection user={rawUser} projects={projects} linkedCourses={linkedCourses}/>}
+            {tab === 'resources'        && <ResourceManagementSection user={rawUser}/>}
             {tab === 'profile'       && <ProfileSection user={rawUser} profile={profile} setProfile={setProfile} />}
             {tab === 'courses'       && <CoursesSection linkedCourses={linkedCourses} setLinkedCourses={setLinkedCourses} pushNotif={pushNotif} />}
             {tab === 'projects'      && <ProjectsSection user={rawUser} projects={projects} setProjects={setProjects} pushNotif={pushNotif} />}
@@ -2035,6 +2405,7 @@ export default function InstructorDashboard() {
                 <AnnouncementsManagement announcements={announcements} onAdd={() => setShowAnnouncementModal(true)} onRemove={id => setAnnouncements(p => p.filter(a => a.id !== id))}/>
               </div>
             )}
+            {tab === 'review-queue' && null /* rendered above */}
           </div>
         </main>
       </div>
