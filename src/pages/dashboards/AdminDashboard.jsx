@@ -121,6 +121,19 @@ const IC = {
   zap:'M13 2L3 14h9l-1 8 10-12h-9l1-8z',
   settings:'M12 15a3 3 0 100-6 3 3 0 000 6zM19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z',
   search:'M21 21l-4.35-4.35M17 11A6 6 0 105 11a6 6 0 0012 0z',
+  user:        'M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2M12 11a4 4 0 100-8 4 4 0 000 8z',
+  activity:    'M22 12h-4l-3 9L9 3l-3 9H2',
+  trendUp:     'M23 6l-9.5 9.5-5-5L1 18',
+  alertCircle: 'M12 22a10 10 0 100-20 10 10 0 000 20zM12 8v4M12 16h.01',
+  fileText:    'M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8zM14 2v6h6M16 13H8M16 17H8M10 9H8',
+  layers:      'M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5',
+  target:      'M12 22a10 10 0 100-20 10 10 0 000 20zM12 18a6 6 0 100-12 6 6 0 000 12zM12 14a2 2 0 100-4 2 2 0 000 4z',
+  filter:      'M22 3H2l8 9.46V19l4 2V12.46L22 3z',
+  arrowRight:  'M5 12h14M12 5l7 7-7 7',
+  server:      'M20 13a2 2 0 012 2v3a2 2 0 01-2 2H4a2 2 0 01-2-2v-3a2 2 0 012-2h16zM20 5a2 2 0 012 2v1a2 2 0 01-2 2H4a2 2 0 01-2-2V7a2 2 0 012-2h16zM6 9h.01M6 17h.01',
+  database:    'M12 2a9 3 0 019 3 9 3 0 010 6 9 3 0 010 6 9 3 0 01-18 0V5a9 3 0 019-3zM3 5v14M21 5v14',
+  clock:       'M12 22a10 10 0 100-20 10 10 0 000 20zM12 6v6l4 2',
+  plus:        'M12 5v14M5 12h14',
 }
 
 const Badge = ({ children, color = 'blue' }) => {
@@ -427,11 +440,16 @@ export default function AdminDashboard() {
 
   const navItems = [
     { id:'statistics',    label:'Statistics',           icon:IC.chart },
+    { id:'overview',      label:'Platform Overview',    icon:IC.target },
     { id:'approvals',     label:'Employer Approvals',   icon:IC.briefcase, badge:pendingApprovals },
     { id:'users',         label:'User Management',      icon:IC.users },
     { id:'projects',      label:'Projects & Portfolios',icon:IC.folder, badge:flaggedProjects.length, badgeColor:'red' },
+    { id:'moderation',    label:'Content Moderation',   icon:IC.flag, badge:flaggedProjects.length, badgeColor:'red' },
     { id:'courses',       label:'Courses',              icon:IC.book },
     { id:'notifications', label:'Notifications',        icon:IC.bell, badge:adminState.notificationsEnabled?unreadCount:0 },
+    { id:'reports',       label:'Reports Center',       icon:IC.fileText },
+    { id:'audit',         label:'Audit Logs',           icon:IC.activity },
+    { id:'health',        label:'Platform Health',      icon:IC.server },
     { id:'adminAccounts', label:'Admin Accounts',       icon:IC.shield },
     { id:'settings',      label:'Settings',             icon:IC.settings },
   ]
@@ -451,19 +469,21 @@ export default function AdminDashboard() {
       <nav className="flex-1 space-y-0.5">
         {navItems.map(item => (
           <button key={item.id} onClick={() => { setActiveTab(item.id); setSidebar(false) }}
-            className={`group relative flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-150 ${activeTab===item.id?'bg-blue-700 text-white shadow-sm':'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-blue-700 dark:hover:text-blue-400 hover:translate-x-0.5'}`}>
-            <Icon d={item.icon} size={16}/>
-            <span>{item.label}</span>
-            {item.badge>0&&<span className={`ml-auto rounded-full px-2 py-0.5 text-xs font-semibold ${activeTab===item.id?'bg-white text-blue-700':item.badgeColor==='red'?'bg-red-500 text-white':'bg-blue-600 text-white'}`}>{item.badge}</span>}
+            className={`group flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-150 ${activeTab===item.id?'bg-blue-700 text-white shadow-sm':'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-blue-700 dark:hover:text-blue-400 hover:translate-x-0.5'}`}>
+            <Icon d={item.icon} size={16} className="shrink-0"/>
+            <span className="truncate flex-1 text-left whitespace-nowrap">{item.label}</span>
+            {item.badge>0&&<span className={`ml-auto shrink-0 rounded-full px-2 py-0.5 text-xs font-semibold ${activeTab===item.id?'bg-white text-blue-700':'bg-red-500 text-white'}`}>{item.badge}</span>}
           </button>
         ))}
       </nav>
       <div className="mt-4 border-t border-slate-100 dark:border-slate-700/50 pt-4 space-y-0.5">
-        <button onClick={() => { refreshUsers(); refreshProjects(); syncExternalLinkRequests() }} className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all">
-          <Icon d={IC.refresh} size={16}/><span>Refresh Data</span>
+        <button onClick={() => { refreshUsers(); refreshProjects(); syncExternalLinkRequests() }}
+          className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-slate-600 dark:text-slate-300 transition-all duration-150 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-blue-700 dark:hover:text-blue-400 hover:translate-x-0.5">
+          <Icon d={IC.refresh} size={16}/><span className="whitespace-nowrap">Refresh Data</span>
         </button>
-        <button onClick={handleLogout} className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-slate-600 dark:text-slate-300 hover:bg-red-50 dark:hover:bg-red-950/30 hover:text-red-600 dark:hover:text-red-400 transition-all">
-          <Icon d={IC.logout} size={16}/><span>Logout</span>
+        <button onClick={handleLogout}
+          className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-slate-600 dark:text-slate-300 transition-all duration-150 hover:bg-red-50 dark:hover:bg-red-950/30 hover:text-red-600 dark:hover:text-red-400">
+          <Icon d={IC.logout} size={16}/><span className="whitespace-nowrap">Logout</span>
         </button>
       </div>
     </>
@@ -474,11 +494,11 @@ export default function AdminDashboard() {
 
   return (
     <div className="flex h-screen overflow-hidden transition-colors duration-200 bg-slate-50 dark:bg-slate-900">
-      <aside className="hidden w-60 shrink-0 flex-col border-r border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-5 md:flex overflow-y-auto">{renderNav()}</aside>
+      <aside className="hidden w-64 shrink-0 flex-col border-r border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-5 md:flex overflow-y-auto">{renderNav()}</aside>
       {sidebarOpen&&(
         <div className="fixed inset-0 z-40 md:hidden" onClick={()=>setSidebar(false)}>
           <div className="absolute inset-0 bg-black/40 backdrop-blur-sm"/>
-          <aside className="absolute left-0 top-0 bottom-0 w-64 flex flex-col border-r border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-5" onClick={e=>e.stopPropagation()}>{renderNav()}</aside>
+          <aside className="absolute left-0 top-0 bottom-0 w-64 flex flex-col border-r border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-5 overflow-y-auto" onClick={e=>e.stopPropagation()}>{renderNav()}</aside>
         </div>
       )}
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
@@ -883,6 +903,407 @@ export default function AdminDashboard() {
             )}
 
             {activeTab==='settings'&&<SettingsTab isDark={isDark} setTheme={setTheme} user={currentUser}/>}
+
+            {/* ── Platform Overview ── */}
+            {activeTab==='overview'&&(
+              <div className="space-y-6">
+                <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-blue-700 via-blue-600 to-blue-500 px-8 py-10 shadow-lg shadow-blue-200 dark:shadow-blue-900/30">
+                  <div className="pointer-events-none absolute -right-12 -top-12 h-56 w-56 rounded-full bg-white/10 blur-3xl"/>
+                  <div className="pointer-events-none absolute -bottom-10 -left-10 h-48 w-48 rounded-full bg-white/10 blur-3xl"/>
+                  <div className="relative"><h2 className="text-3xl font-bold text-white">Platform Overview</h2><p className="text-blue-100 text-sm mt-1">Live snapshot of users, activity, and platform health.</p></div>
+                </div>
+
+                {/* Quick Actions */}
+                <Card>
+                  <h3 className="font-semibold text-slate-800 dark:text-slate-200 mb-3">Quick Actions</h3>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+                    {[
+                      { label:'Manage Users',      icon:IC.users,     tab:'users',         color:'bg-blue-50 dark:bg-blue-950/40 hover:bg-blue-100 dark:hover:bg-blue-900/50 text-blue-700 dark:text-blue-300 border-blue-100 dark:border-blue-900' },
+                      { label:'Review Approvals',  icon:IC.briefcase, tab:'approvals',     color:'bg-amber-50 dark:bg-amber-950/40 hover:bg-amber-100 dark:hover:bg-amber-900/50 text-amber-700 dark:text-amber-300 border-amber-100 dark:border-amber-900' },
+                      { label:'View Reports',      icon:IC.fileText,  tab:'reports',       color:'bg-purple-50 dark:bg-purple-950/40 hover:bg-purple-100 dark:hover:bg-purple-900/50 text-purple-700 dark:text-purple-300 border-purple-100 dark:border-purple-900' },
+                      { label:'Platform Settings', icon:IC.settings,  tab:'settings',      color:'bg-slate-50 dark:bg-slate-700/40 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-600' },
+                      { label:'Export Analytics',  icon:IC.download,  tab:null,            color:'bg-green-50 dark:bg-green-950/40 hover:bg-green-100 dark:hover:bg-green-900/50 text-green-700 dark:text-green-300 border-green-100 dark:border-green-900',
+                        fn:() => { const data={users:stats,projects:projects.length,employers:employers.length,internships:employers.reduce((s,e)=>s+e.internshipsOffered,0)}; const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'}); const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='platform-analytics.json'; a.click() }
+                      },
+                    ].map(a => (
+                      <button key={a.label} onClick={a.fn||(()=>setActiveTab(a.tab))}
+                        className={`flex flex-col items-center gap-2 rounded-xl border p-4 text-center transition-all duration-150 hover:-translate-y-0.5 hover:shadow-sm active:scale-95 ${a.color}`}>
+                        <Icon d={a.icon} size={20}/>
+                        <span className="text-xs font-semibold leading-tight">{a.label}</span>
+                      </button>
+                    ))}
+                  </div>
+                </Card>
+
+                {/* Analytics KPIs */}
+                <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6">
+                  {[
+                    { label:'Total Users',         value:stats.totalUsers,                                                    color:'text-blue-700 dark:text-blue-400',   bg:'bg-blue-50 dark:bg-blue-950/40' },
+                    { label:'Active Students',     value:platformUsers.filter(u=>u.role==='student'&&u.isActive).length,      color:'text-emerald-700 dark:text-emerald-400',bg:'bg-emerald-50 dark:bg-emerald-950/40' },
+                    { label:'Active Instructors',  value:platformUsers.filter(u=>u.role==='instructor'&&u.isActive).length,   color:'text-purple-700 dark:text-purple-400',bg:'bg-purple-50 dark:bg-purple-950/40' },
+                    { label:'Active Employers',    value:platformUsers.filter(u=>u.role==='employer'&&u.isActive).length,     color:'text-orange-700 dark:text-orange-400',bg:'bg-orange-50 dark:bg-orange-950/40' },
+                    { label:'Total Internships',   value:employers.reduce((s,e)=>s+e.internshipsOffered,0),                   color:'text-rose-700 dark:text-rose-400',   bg:'bg-rose-50 dark:bg-rose-950/40' },
+                    { label:'Total Projects',      value:stats.totalProjects,                                                 color:'text-yellow-700 dark:text-yellow-400',bg:'bg-yellow-50 dark:bg-yellow-950/40' },
+                  ].map(s=>(
+                    <div key={s.label} className={`rounded-xl border-0 p-4 shadow-sm ${s.bg}`}>
+                      <p className="text-xs text-slate-500 dark:text-slate-400">{s.label}</p>
+                      <p className={`mt-1 text-2xl font-bold ${s.color}`}>{s.value}</p>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Insights — growth bars */}
+                <div className="grid gap-4 lg:grid-cols-2">
+                  <Card>
+                    <h3 className="font-semibold text-slate-800 dark:text-slate-200 mb-4 flex items-center gap-2"><Icon d={IC.trendUp} size={15}/>Admin Insights</h3>
+                    <div className="space-y-4">
+                      {[
+                        { label:'Student Engagement',  pct:stats.totalStudents>0?Math.min(Math.round((projects.filter(p=>p.status==='active').length/Math.max(stats.totalStudents,1))*100),100):0, color:'bg-blue-600' },
+                        { label:'Employer Activity',   pct:stats.totalEmployers>0?Math.min(Math.round((employers.filter(e=>e.internshipsOffered>0).length/Math.max(stats.totalEmployers,1))*100),100):0, color:'bg-orange-500' },
+                        { label:'Approval Rate',       pct:employers.length>0?Math.round((employers.filter(e=>e.status==='accepted').length/employers.length)*100):0, color:'bg-green-500' },
+                        { label:'Flagged Content Rate',pct:projects.length>0?Math.round((flaggedProjects.length/projects.length)*100):0, color:'bg-red-500' },
+                      ].map(m=>(
+                        <div key={m.label}>
+                          <div className="flex items-center justify-between mb-1.5">
+                            <span className="text-sm font-medium text-slate-700 dark:text-slate-300">{m.label}</span>
+                            <span className="text-sm font-bold text-slate-500 dark:text-slate-400">{m.pct}%</span>
+                          </div>
+                          <div className="h-2 w-full rounded-full bg-slate-100 dark:bg-slate-700 overflow-hidden">
+                            <div className={`h-2 rounded-full transition-all duration-700 ${m.color}`} style={{width:`${m.pct}%`}}/>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </Card>
+
+                  {/* User Management Center widget */}
+                  <Card>
+                    <h3 className="font-semibold text-slate-800 dark:text-slate-200 mb-4 flex items-center gap-2"><Icon d={IC.users} size={15}/>User Management Center</h3>
+                    <div className="grid grid-cols-2 gap-3 mb-4">
+                      {[
+                        { label:'Pending Approvals',  value:pendingApprovals,                                                          color:'text-amber-700 dark:text-amber-400',   bg:'bg-amber-50 dark:bg-amber-950/40' },
+                        { label:'Suspended Accounts', value:platformUsers.filter(u=>!u.isActive).length,                               color:'text-red-700 dark:text-red-400',       bg:'bg-red-50 dark:bg-red-950/40' },
+                        { label:'Verified Employers', value:employers.filter(e=>e.isVerified||e.status==='accepted').length,           color:'text-green-700 dark:text-green-400',   bg:'bg-green-50 dark:bg-green-950/40' },
+                        { label:'Total Admins',       value:platformUsers.filter(u=>u.role==='admin').length,                          color:'text-purple-700 dark:text-purple-400', bg:'bg-purple-50 dark:bg-purple-950/40' },
+                      ].map(s=>(
+                        <div key={s.label} className={`rounded-xl p-3 ${s.bg}`}>
+                          <p className={`text-xl font-bold ${s.color}`}>{s.value}</p>
+                          <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 leading-tight">{s.label}</p>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      <button onClick={()=>setActiveTab('users')} className="inline-flex items-center gap-1.5 rounded-lg bg-blue-700 px-3 py-1.5 text-xs font-semibold text-white hover:bg-blue-800 transition-colors"><Icon d={IC.arrowRight} size={12}/>Manage Users</button>
+                      <button onClick={()=>setActiveTab('approvals')} className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 px-3 py-1.5 text-xs font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-600 transition-colors"><Icon d={IC.briefcase} size={12}/>Review Approvals</button>
+                    </div>
+                  </Card>
+                </div>
+
+                {/* Recent Platform Activity feed */}
+                <Card>
+                  <h3 className="font-semibold text-slate-800 dark:text-slate-200 mb-4 flex items-center gap-2"><Icon d={IC.activity} size={15}/>Recent Platform Activity</h3>
+                  {(()=>{
+                    const feed=[]
+                    platformUsers.slice(-5).reverse().forEach(u=>feed.push({ id:'user_'+u.id, label:`New ${u.role} registered`, sub:u.email, icon:IC.user, color:'bg-blue-100 dark:bg-blue-900/50 text-blue-600 dark:text-blue-400' }))
+                    employers.filter(e=>e.status==='accepted').slice(0,3).forEach(e=>feed.push({ id:'emp_'+e.id, label:`Employer approved: ${e.companyName}`, sub:e.companyEmail, icon:IC.check, color:'bg-green-100 dark:bg-green-900/50 text-green-600 dark:text-green-400' }))
+                    employers.filter(e=>e.status==='rejected').slice(0,2).forEach(e=>feed.push({ id:'rej_'+e.id, label:`Employer rejected: ${e.companyName}`, sub:e.companyEmail, icon:IC.x, color:'bg-red-100 dark:bg-red-900/50 text-red-600 dark:text-red-400' }))
+                    flaggedProjects.slice(0,3).forEach(p=>feed.push({ id:'flag_'+p.id, label:`Project flagged: "${p.title}"`, sub:p.owner||'', icon:IC.flag, color:'bg-red-100 dark:bg-red-900/50 text-red-600 dark:text-red-400' }))
+                    projects.filter(p=>p.status==='active').slice(0,3).forEach(p=>feed.push({ id:'proj_'+p.id, label:`New project: "${p.title}"`, sub:p.courseCode||'', icon:IC.folder, color:'bg-purple-100 dark:bg-purple-900/50 text-purple-600 dark:text-purple-400' }))
+                    if(feed.length===0) return <p className="text-sm text-slate-400 dark:text-slate-500 text-center py-4">No recent activity.</p>
+                    return (
+                      <ol className="relative border-l border-slate-200 dark:border-slate-700 pl-5 space-y-4">
+                        {feed.slice(0,8).map(ev=>(
+                          <li key={ev.id} className="relative">
+                            <span className={`absolute -left-[21px] flex h-4 w-4 items-center justify-center rounded-full ring-2 ring-white dark:ring-slate-800 ${ev.color}`}><Icon d={ev.icon} size={9}/></span>
+                            <p className="text-sm text-slate-700 dark:text-slate-300">{ev.label}</p>
+                            {ev.sub&&<p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">{ev.sub}</p>}
+                          </li>
+                        ))}
+                      </ol>
+                    )
+                  })()}
+                </Card>
+
+                {/* Role Management */}
+                <Card>
+                  <h3 className="font-semibold text-slate-800 dark:text-slate-200 mb-4 flex items-center gap-2"><Icon d={IC.layers} size={15}/>Role Management</h3>
+                  <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                    {[
+                      { role:'Students',    count:stats.totalStudents,    active:platformUsers.filter(u=>u.role==='student'&&u.isActive).length,    tab:'users', color:'blue' },
+                      { role:'Instructors', count:stats.totalInstructors, active:platformUsers.filter(u=>u.role==='instructor'&&u.isActive).length, tab:'users', color:'purple' },
+                      { role:'Employers',   count:stats.totalEmployers,   active:platformUsers.filter(u=>u.role==='employer'&&u.isActive).length,   tab:'users', color:'orange' },
+                      { role:'Admins',      count:platformUsers.filter(u=>u.role==='admin').length, active:platformUsers.filter(u=>u.role==='admin'&&u.isActive).length, tab:'adminAccounts', color:'green' },
+                    ].map(r=>{
+                      const colorMap={blue:'bg-blue-50 dark:bg-blue-950/40 border-blue-100 dark:border-blue-900 text-blue-700 dark:text-blue-300',purple:'bg-purple-50 dark:bg-purple-950/40 border-purple-100 dark:border-purple-900 text-purple-700 dark:text-purple-300',orange:'bg-orange-50 dark:bg-orange-950/40 border-orange-100 dark:border-orange-900 text-orange-700 dark:text-orange-300',green:'bg-green-50 dark:bg-green-950/40 border-green-100 dark:border-green-900 text-green-700 dark:text-green-300'}
+                      return (
+                        <button key={r.role} onClick={()=>setActiveTab(r.tab)} className={`rounded-xl border p-4 text-left transition-all hover:-translate-y-0.5 hover:shadow-sm ${colorMap[r.color]}`}>
+                          <p className="text-2xl font-bold">{r.count}</p>
+                          <p className="text-sm font-semibold mt-0.5">{r.role}</p>
+                          <p className="text-xs opacity-70 mt-1">{r.active} active</p>
+                        </button>
+                      )
+                    })}
+                  </div>
+                </Card>
+              </div>
+            )}
+
+            {/* ── Reports Center ── */}
+            {activeTab==='reports'&&(
+              <div className="space-y-6">
+                <div><h2 className="text-2xl font-bold text-slate-900 dark:text-white">Reports Center</h2><p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Platform-wide reporting and export tools.</p></div>
+
+                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                  {[
+                    { label:'User Reports',        icon:IC.users,     desc:`${stats.totalUsers} total users across all roles`,                  color:'bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 border-blue-100 dark:border-blue-900' },
+                    { label:'Internship Reports',  icon:IC.briefcase, desc:`${employers.reduce((s,e)=>s+e.internshipsOffered,0)} positions offered total`, color:'bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border-amber-100 dark:border-amber-900' },
+                    { label:'Project Reports',     icon:IC.folder,    desc:`${stats.totalProjects} projects, ${flaggedProjects.length} flagged`, color:'bg-purple-50 dark:bg-purple-950/40 text-purple-700 dark:text-purple-300 border-purple-100 dark:border-purple-900' },
+                    { label:'System Reports',      icon:IC.server,    desc:'Platform health and performance summary',                            color:'bg-green-50 dark:bg-green-950/40 text-green-700 dark:text-green-300 border-green-100 dark:border-green-900' },
+                  ].map(r=>(
+                    <div key={r.label} className={`rounded-xl border p-5 shadow-sm ${r.color}`}>
+                      <div className="flex items-center gap-2 mb-2"><Icon d={r.icon} size={16}/><p className="font-semibold">{r.label}</p></div>
+                      <p className="text-xs opacity-80 leading-relaxed">{r.desc}</p>
+                    </div>
+                  ))}
+                </div>
+
+                <Card>
+                  <h3 className="font-semibold text-slate-800 dark:text-slate-200 mb-4">Export Reports</h3>
+                  <div className="space-y-2">
+                    {[
+                      { label:'Export All Users (JSON)',        fn:()=>{ const d=platformUsers.map(u=>({email:u.email,role:u.role,active:u.isActive})); const b=new Blob([JSON.stringify(d,null,2)],{type:'application/json'}); const a=document.createElement('a'); a.href=URL.createObjectURL(b); a.download='users-report.json'; a.click() } },
+                      { label:'Export All Projects (JSON)',     fn:()=>{ const d=projects.map(p=>({title:p.title,course:p.courseCode,owner:p.owner,flagged:p.flagged,rating:p.rating,status:p.status})); const b=new Blob([JSON.stringify(d,null,2)],{type:'application/json'}); const a=document.createElement('a'); a.href=URL.createObjectURL(b); a.download='projects-report.json'; a.click() } },
+                      { label:'Export Employer Approvals (JSON)', fn:()=>{ const d=employers.map(e=>({company:e.companyName,email:e.companyEmail,status:e.status,internships:e.internshipsOffered,hired:e.studentsHired})); const b=new Blob([JSON.stringify(d,null,2)],{type:'application/json'}); const a=document.createElement('a'); a.href=URL.createObjectURL(b); a.download='approvals-report.json'; a.click() } },
+                      { label:'Export Platform Analytics (JSON)', fn:()=>{ const d={users:stats,projects:projects.length,flagged:flaggedProjects.length,internships:employers.reduce((s,e)=>s+e.internshipsOffered,0),studentsHired:employers.reduce((s,e)=>s+e.studentsHired,0)}; const b=new Blob([JSON.stringify(d,null,2)],{type:'application/json'}); const a=document.createElement('a'); a.href=URL.createObjectURL(b); a.download='platform-analytics.json'; a.click() } },
+                    ].map(r=>(
+                      <button key={r.label} onClick={r.fn}
+                        className="flex w-full items-center justify-between rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-700/30 px-4 py-3 hover:border-blue-300 dark:hover:border-blue-700 hover:bg-blue-50 dark:hover:bg-blue-950/20 transition-all group">
+                        <div className="flex items-center gap-2.5">
+                          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-100 dark:bg-blue-900/50 text-blue-600 dark:text-blue-400"><Icon d={IC.download} size={14}/></div>
+                          <span className="text-sm font-medium text-slate-700 dark:text-slate-300">{r.label}</span>
+                        </div>
+                        <Icon d={IC.arrowRight} size={14}/>
+                      </button>
+                    ))}
+                  </div>
+                </Card>
+
+                {/* Recent report activity */}
+                <Card>
+                  <h3 className="font-semibold text-slate-800 dark:text-slate-200 mb-4">Recent Report Activity</h3>
+                  <div className="space-y-2">
+                    {adminState.notifications.slice(0,6).map(n=>(
+                      <div key={n.id} className={`flex items-start gap-3 rounded-xl border px-4 py-3 ${n.read?'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800':'border-blue-200 dark:border-blue-800 bg-blue-50/60 dark:bg-blue-900/20'}`}>
+                        <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-blue-100 dark:bg-blue-900/50 text-blue-600 dark:text-blue-400"><Icon d={IC.bell} size={12}/></div>
+                        <div className="min-w-0 flex-1">
+                          <p className={`text-sm font-medium ${n.read?'text-slate-500 dark:text-slate-400':'text-slate-800 dark:text-slate-200'}`}>{n.title}</p>
+                          <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">{n.createdAt}</p>
+                        </div>
+                        {!n.read&&<span className="h-2 w-2 shrink-0 mt-1.5 rounded-full bg-blue-600"/>}
+                      </div>
+                    ))}
+                    {adminState.notifications.length===0&&<p className="text-sm text-slate-400 dark:text-slate-500 text-center py-4">No report activity yet.</p>}
+                  </div>
+                </Card>
+              </div>
+            )}
+
+            {/* ── Audit Logs ── */}
+            {activeTab==='audit'&&(
+              <div className="space-y-6">
+                <div><h2 className="text-2xl font-bold text-slate-900 dark:text-white">Audit Logs</h2><p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Complete history of admin and platform actions.</p></div>
+                <Card className="p-0 overflow-hidden">
+                  <div className="px-5 py-3 border-b border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-700/30 flex items-center justify-between">
+                    <h3 className="font-semibold text-sm text-slate-700 dark:text-slate-300">Action Log</h3>
+                    <span className="text-xs text-slate-400 dark:text-slate-500">{(()=>{
+                      let count=0
+                      count+=platformUsers.length
+                      count+=employers.filter(e=>e.status!=='pending').length
+                      count+=flaggedProjects.length
+                      count+=adminState.appeals.filter(a=>a.status!=='pending').length
+                      return count
+                    })()} entries</span>
+                  </div>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left text-sm">
+                      <thead className="border-b border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-700/20">
+                        <tr>{['Action','User / Entity','Role','Details','Timestamp'].map(h=><th key={h} className="p-4 text-xs font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">{h}</th>)}</tr>
+                      </thead>
+                      <tbody>
+                        {(()=>{
+                          const logs=[]
+                          platformUsers.forEach(u=>logs.push({ action:'User Created', entity:u.email, role:u.role, detail:u.isActive?'Active account':'Inactive account', ts:'On registration' }))
+                          employers.filter(e=>e.status==='accepted').forEach(e=>logs.push({ action:'Employer Approved', entity:e.companyName, role:'employer', detail:'Application accepted', ts:new Date().toLocaleDateString() }))
+                          employers.filter(e=>e.status==='rejected').forEach(e=>logs.push({ action:'Employer Rejected', entity:e.companyName, role:'employer', detail:'Application rejected', ts:new Date().toLocaleDateString() }))
+                          flaggedProjects.forEach(p=>logs.push({ action:'Project Flagged', entity:p.title||'Untitled', role:'admin', detail:p.flagReason||'Policy violation', ts:p.createdAt||'—' }))
+                          platformUsers.filter(u=>!u.isActive).forEach(u=>logs.push({ action:'Account Suspended', entity:u.email, role:u.role, detail:'Account deactivated', ts:'—' }))
+                          adminState.appeals.filter(a=>a.status!=='pending').forEach(a=>logs.push({ action:`Appeal ${a.status}`, entity:a.studentName, role:'student', detail:`"${a.projectTitle}"`, ts:a.createdAt||'—' }))
+                          return logs.length===0?(
+                            <tr><td colSpan={5} className="p-6 text-center text-slate-400 dark:text-slate-500 text-sm">No audit entries yet.</td></tr>
+                          ):logs.map((log,i)=>{
+                            const actionColor = log.action.includes('Created')||log.action.includes('Approved')||log.action.includes('accepted')?'text-green-700 dark:text-green-400':log.action.includes('Rejected')||log.action.includes('Suspended')||log.action.includes('Flagged')?'text-red-700 dark:text-red-400':'text-slate-700 dark:text-slate-300'
+                            return (
+                              <tr key={i} className="border-b border-slate-100 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700/30">
+                                <td className={`p-4 font-medium ${actionColor}`}>{log.action}</td>
+                                <td className="p-4 text-slate-700 dark:text-slate-300 max-w-[160px] truncate">{log.entity}</td>
+                                <td className="p-4"><Badge color={log.role==='admin'?'red':log.role==='employer'?'orange':log.role==='instructor'?'purple':'blue'}>{log.role}</Badge></td>
+                                <td className="p-4 text-slate-500 dark:text-slate-400 max-w-[180px] truncate">{log.detail}</td>
+                                <td className="p-4 text-slate-400 dark:text-slate-500 text-xs">{log.ts}</td>
+                              </tr>
+                            )
+                          })
+                        })()}
+                      </tbody>
+                    </table>
+                  </div>
+                </Card>
+              </div>
+            )}
+
+            {/* ── Platform Health ── */}
+            {activeTab==='health'&&(
+              <div className="space-y-6">
+                <div><h2 className="text-2xl font-bold text-slate-900 dark:text-white">Platform Health</h2><p className="mt-1 text-sm text-slate-500 dark:text-slate-400">System status and performance indicators.</p></div>
+
+                {/* Status indicators */}
+                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                  {[
+                    { label:'System Status',   status:'Operational', icon:IC.server,   ok:true },
+                    { label:'Database',        status:'Healthy',     icon:IC.database, ok:true },
+                    { label:'API Status',      status:'All Systems Go',icon:IC.activity,ok:true },
+                    { label:'Storage',         status:localStorage.length>200?'Warning':'Normal', icon:IC.layers, ok:localStorage.length<=200 },
+                  ].map(s=>(
+                    <div key={s.label} className={`rounded-xl border p-5 shadow-sm ${s.ok?'border-green-100 dark:border-green-900 bg-green-50 dark:bg-green-950/30':'border-amber-100 dark:border-amber-900 bg-amber-50 dark:bg-amber-950/30'}`}>
+                      <div className="flex items-center justify-between mb-3">
+                        <div className={`flex h-9 w-9 items-center justify-center rounded-lg ${s.ok?'bg-green-100 dark:bg-green-900/50 text-green-600 dark:text-green-400':'bg-amber-100 dark:bg-amber-900/50 text-amber-600 dark:text-amber-400'}`}><Icon d={s.icon} size={16}/></div>
+                        <span className={`flex h-3 w-3 rounded-full ${s.ok?'bg-green-500':'bg-amber-500'}`}/>
+                      </div>
+                      <p className="font-semibold text-slate-800 dark:text-slate-200 text-sm">{s.label}</p>
+                      <p className={`text-xs mt-0.5 font-medium ${s.ok?'text-green-600 dark:text-green-400':'text-amber-600 dark:text-amber-400'}`}>{s.status}</p>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Storage usage */}
+                <Card>
+                  <h3 className="font-semibold text-slate-800 dark:text-slate-200 mb-4">LocalStorage Usage</h3>
+                  <div className="space-y-3">
+                    {(()=>{
+                      const total = Object.keys(localStorage).length
+                      const items = [
+                        { label:'User Profiles',   count:Object.keys(localStorage).filter(k=>k.includes('profile')).length },
+                        { label:'Project Data',    count:Object.keys(localStorage).filter(k=>k.includes('project')||k.includes('student_p')).length },
+                        { label:'Employer Data',   count:Object.keys(localStorage).filter(k=>k.includes('emp_')).length },
+                        { label:'Admin Data',      count:Object.keys(localStorage).filter(k=>k.includes('admin')||k.includes('guc_')).length },
+                        { label:'Other',           count:Math.max(0,total-Object.keys(localStorage).filter(k=>k.includes('profile')||k.includes('project')||k.includes('student_p')||k.includes('emp_')||k.includes('admin')||k.includes('guc_')).length) },
+                      ]
+                      return items.map(item=>{
+                        const pct=total>0?Math.round((item.count/total)*100):0
+                        return (
+                          <div key={item.label}>
+                            <div className="flex items-center justify-between mb-1"><span className="text-sm text-slate-700 dark:text-slate-300">{item.label}</span><span className="text-xs font-semibold text-slate-500 dark:text-slate-400">{item.count} keys ({pct}%)</span></div>
+                            <div className="h-2 w-full rounded-full bg-slate-100 dark:bg-slate-700 overflow-hidden"><div className="h-2 rounded-full bg-blue-600 transition-all duration-700" style={{width:`${pct}%`}}/></div>
+                          </div>
+                        )
+                      })
+                    })()}
+                  </div>
+                  <p className="text-xs text-slate-400 dark:text-slate-500 mt-4">Total keys in localStorage: <strong className="text-slate-600 dark:text-slate-300">{Object.keys(localStorage).length}</strong></p>
+                </Card>
+
+                {/* Platform metrics summary */}
+                <Card>
+                  <h3 className="font-semibold text-slate-800 dark:text-slate-200 mb-4">Platform Metrics</h3>
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    {[
+                      { label:'Total Registered Users',      value:stats.totalUsers },
+                      { label:'Active User Accounts',        value:platformUsers.filter(u=>u.isActive).length },
+                      { label:'Suspended Accounts',          value:platformUsers.filter(u=>!u.isActive).length },
+                      { label:'Total Projects Submitted',    value:stats.totalProjects },
+                      { label:'Active Projects',             value:activeProjectCount },
+                      { label:'Flagged Projects',            value:flaggedProjects.length },
+                      { label:'Pending Employer Approvals',  value:pendingApprovals },
+                      { label:'Open Appeals',                value:adminState.appeals.filter(a=>a.status==='pending').length },
+                      { label:'Unread Notifications',        value:unreadCount },
+                      { label:'Courses in Catalog',          value:stats.totalCourses },
+                    ].map(m=>(
+                      <div key={m.label} className="flex items-center justify-between rounded-lg border border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-700/30 px-4 py-2.5">
+                        <span className="text-sm text-slate-600 dark:text-slate-400">{m.label}</span>
+                        <span className="text-sm font-bold text-slate-800 dark:text-slate-200">{m.value}</span>
+                      </div>
+                    ))}
+                  </div>
+                </Card>
+              </div>
+            )}
+
+            {/* ── Content Moderation ── */}
+            {activeTab==='moderation'&&(
+              <div className="space-y-6">
+                <div><h2 className="text-2xl font-bold text-slate-900 dark:text-white">Content Moderation</h2><p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Review and act on flagged content across the platform.</p></div>
+
+                <div className="grid gap-3 sm:grid-cols-3">
+                  {[
+                    { label:'Flagged Projects',    value:flaggedProjects.length,                              color:'text-red-700 dark:text-red-400',   bg:'bg-red-50 dark:bg-red-950/40' },
+                    { label:'Flagged Internships', value:employers.reduce((s,e)=>s+e.internshipsList.filter(i=>i.status==='Position Filled').length,0), color:'text-amber-700 dark:text-amber-400',bg:'bg-amber-50 dark:bg-amber-950/40' },
+                    { label:'Pending Appeals',     value:adminState.appeals.filter(a=>a.status==='pending').length, color:'text-purple-700 dark:text-purple-400',bg:'bg-purple-50 dark:bg-purple-950/40' },
+                  ].map(s=>(
+                    <div key={s.label} className={`rounded-xl p-4 shadow-sm ${s.bg}`}><p className={`text-2xl font-bold ${s.color}`}>{s.value}</p><p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">{s.label}</p></div>
+                  ))}
+                </div>
+
+                {/* Flagged projects */}
+                <Card>
+                  <h3 className="font-semibold text-slate-800 dark:text-slate-200 mb-4 flex items-center gap-2"><Icon d={IC.flag} size={15}/>Flagged Projects <Badge color="red">{flaggedProjects.length}</Badge></h3>
+                  {flaggedProjects.length===0?(
+                    <div className="flex flex-col items-center gap-2 py-8 text-center">
+                      <div className="flex h-12 w-12 items-center justify-center rounded-full bg-green-50 dark:bg-green-950/40 text-green-500"><Icon d={IC.check} size={22}/></div>
+                      <p className="text-sm font-medium text-slate-600 dark:text-slate-400">No flagged projects</p>
+                    </div>
+                  ):(
+                    <div className="space-y-2">
+                      {flaggedProjects.map(p=>(
+                        <div key={p.id} className="flex items-center gap-3 rounded-xl border border-red-100 dark:border-red-900 bg-red-50 dark:bg-red-950/20 px-4 py-3">
+                          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-red-100 dark:bg-red-900/50 text-red-600 dark:text-red-400"><Icon d={IC.flag} size={14}/></div>
+                          <div className="min-w-0 flex-1">
+                            <p className="font-medium text-slate-800 dark:text-slate-200 truncate">{p.title}</p>
+                            <p className="text-xs text-slate-500 dark:text-slate-400">Owner: {p.owner||'—'} · {p.flagReason||'No reason'}</p>
+                          </div>
+                          <div className="flex gap-2 shrink-0">
+                            <button onClick={()=>unflagProject(p.id)} className="rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 px-2.5 py-1 text-xs font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-600 transition-colors">Unflag</button>
+                            <button onClick={()=>toggleProjectStatus(p.id)} className={`rounded-lg px-2.5 py-1 text-xs font-medium text-white transition-colors ${p.status==='active'?'bg-red-600 hover:bg-red-700':'bg-green-600 hover:bg-green-700'}`}>{p.status==='active'?'Deactivate':'Activate'}</button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </Card>
+
+                {/* Appeals quick view */}
+                <Card>
+                  <h3 className="font-semibold text-slate-800 dark:text-slate-200 mb-4 flex items-center gap-2"><Icon d={IC.alertCircle} size={15}/>Pending Appeals <Badge color="yellow">{adminState.appeals.filter(a=>a.status==='pending').length}</Badge></h3>
+                  {adminState.appeals.filter(a=>a.status==='pending').length===0?(
+                    <p className="text-sm text-slate-400 dark:text-slate-500 text-center py-4">No pending appeals.</p>
+                  ):(
+                    <div className="space-y-2">
+                      {adminState.appeals.filter(a=>a.status==='pending').map(appeal=>(
+                        <div key={appeal.id} className="flex items-center gap-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-700/30 px-4 py-3">
+                          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-amber-100 dark:bg-amber-900/50 text-amber-600 dark:text-amber-400 text-sm font-bold">{appeal.studentName?.[0]||'?'}</div>
+                          <div className="min-w-0 flex-1">
+                            <p className="text-sm font-medium text-slate-700 dark:text-slate-300">{appeal.studentName}</p>
+                            <p className="text-xs text-slate-400 dark:text-slate-500 truncate">"{appeal.projectTitle}" · {appeal.createdAt}</p>
+                          </div>
+                          <div className="flex gap-1.5 shrink-0">
+                            <button onClick={()=>handleAppealDecision(appeal.id,'accepted')} className="rounded-lg bg-green-600 px-2.5 py-1 text-xs font-medium text-white hover:bg-green-700 transition-colors">Accept</button>
+                            <button onClick={()=>handleAppealDecision(appeal.id,'rejected')} className="rounded-lg bg-red-600 px-2.5 py-1 text-xs font-medium text-white hover:bg-red-700 transition-colors">Reject</button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </Card>
+              </div>
+            )}
 
           </div>
         </main>
