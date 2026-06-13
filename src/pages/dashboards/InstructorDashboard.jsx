@@ -1982,14 +1982,15 @@ function StudentPortfoliosSection() {
 }
 
 // ── Settings ──────────────────────────────────────────────────────────────────
-function SettingsSection({ rawUser }) {
+function SettingsSection({ rawUser, initialTab = 'appearance' }) {
   const { isDark, setTheme } = useTheme()
   const [profilePublic, setProfilePublic] = useLS('instructor_setting_profile_public_' + rawUser.email, true)
   const [msgNotifs, setMsgNotifs] = useLS('instructor_setting_msg_notifs_' + rawUser.email, true)
   const [cooldown, setCooldown] = useState(false)
   const [cooldownCount, setCooldownCount] = useState(5)
-  const [tab, setTab] = useState('appearance')
+  const [tab, setTab] = useState(initialTab)
 
+  useEffect(() => { setTab(initialTab) }, [initialTab])
   const startCooldown = () => {
     setCooldown(true); setCooldownCount(5)
     const t = setInterval(() => setCooldownCount(c => {
@@ -2142,21 +2143,24 @@ export default function InstructorDashboard() {
   const [showMeetingModal, setShowMeetingModal] = useState(false)
   const [showAnnouncementModal, setShowAnnouncementModal] = useState(false)
   const [meetings, setMeetings] = useLS('instructor_meetings_' + rawUser.email, [])
-  const [announcements, setAnnouncements] = useLS('instructor_announcements_' + rawUser.email, [], (next) => {
-    // mirror to shared bridge key on every save
-    const BRIDGE_KEY='guc_instructor_announcements'
-    const others=LS.get(BRIDGE_KEY,[]).filter(a=>a.instructorEmail!==rawUser.email)
-    LS.set(BRIDGE_KEY,[...others,...next.map(ann=>({
-      id:ann.id,
-      title:ann.title,
-      message:ann.message,
-      type:ann.type||'info',
-      date:ann.date||new Date().toISOString().slice(0,10),
-      instructorEmail:rawUser.email,
-      instructorName:`${profile.firstName||rawUser.firstName||''} ${profile.lastName||rawUser.lastName||''}`.trim(),
-      courseCode:ann.courseCode||'',
+  const [announcements, setAnnouncementsLS] = useLS('instructor_announcements_' + rawUser.email, [])
+  const setAnnouncements = (next) => {
+    const resolved = typeof next === 'function' ? next(announcements) : next
+    setAnnouncementsLS(resolved)
+    // mirror to shared bridge key so students can read instructor announcements
+    const BRIDGE_KEY = 'guc_instructor_announcements'
+    const others = LS.get(BRIDGE_KEY, []).filter(a => a.instructorEmail !== rawUser.email)
+    LS.set(BRIDGE_KEY, [...others, ...resolved.map(ann => ({
+      id: ann.id,
+      title: ann.title,
+      message: ann.message,
+      type: ann.type || 'info',
+      date: ann.date || new Date().toISOString().slice(0, 10),
+      instructorEmail: rawUser.email,
+      instructorName: `${profile.firstName || rawUser.firstName || ''} ${profile.lastName || rawUser.lastName || ''}`.trim(),
+      courseCode: ann.courseCode || '',
     }))])
-  })
+  }
   const [meetingForm, setMeetingForm] = useState({ student:'', date:'', time:'', topic:'' })
   const [announcementForm, setAnnouncementForm] = useState({ title:'', message:'', type:'info', scheduled:false })
 
@@ -2219,7 +2223,7 @@ export default function InstructorDashboard() {
     return () => document.removeEventListener('mousedown', handler)
   }, [])
 
-  const NavContent = () => (
+  const renderNav = () => (
     <>
       <div className="mb-4 mt-1 px-2">
         <p className="mb-2 px-1 text-[10px] font-semibold uppercase tracking-widest text-slate-400 dark:text-slate-500">Instructor Portal</p>
@@ -2263,7 +2267,7 @@ export default function InstructorDashboard() {
     <div className="flex h-screen overflow-hidden transition-colors duration-200 bg-slate-50 dark:bg-slate-900">
       {/* Desktop Sidebar */}
       <aside className="hidden w-60 shrink-0 flex-col border-r border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-5 md:flex overflow-y-auto">
-        <NavContent />
+        {renderNav()}
       </aside>
 
       {/* Mobile Sidebar */}

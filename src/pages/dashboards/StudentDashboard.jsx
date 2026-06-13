@@ -2660,22 +2660,7 @@ function NotificationsSection({ notifications, setNotifications, profileEmail, s
     return{d:IC.bell,bg:'bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400'}
   }
 
-  // Bridge: publish instructor announcements to shared key so students can read them
-  const publishAnnouncementBridge=(ann)=>{
-    const BRIDGE_KEY='guc_instructor_announcements'
-    const existing=LS.get(BRIDGE_KEY,[])
-    const filtered=existing.filter(a=>a.id!==ann.id)
-    LS.set(BRIDGE_KEY,[...filtered,{
-      id:ann.id,
-      title:ann.title,
-      message:ann.message,
-      type:ann.type||'info',
-      date:ann.date||new Date().toISOString().slice(0,10),
-      instructorEmail:rawUser.email,
-      instructorName:`${profile.firstName||rawUser.firstName||''} ${profile.lastName||rawUser.lastName||''}`.trim(),
-      courseCode:ann.courseCode||'',
-    }])
-  }
+
 
   return (
     <div className="space-y-6">
