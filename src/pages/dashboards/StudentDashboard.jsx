@@ -476,8 +476,9 @@ function ActivityHeatmap({ user, projects }) {
   const msgs = LS.get('student_messages_' + user.email, [])
   msgs.forEach(thread => {
     ;(thread.messages || []).forEach(m => {
-      if (m.sentAt) {
-        const d = m.sentAt.slice(0, 10)
+      const ts = m.at || m.sentAt
+      if (ts) {
+        const d = ts.slice(0, 10)
         activityMap[d] = (activityMap[d] || 0) + 1
       }
     })
@@ -1434,19 +1435,40 @@ function InstructorsSection() {
   )
 }
 
-function AppealSection({ project, setProjects, pushNotif }) {
+function AppealSection({ project, setProjects, pushNotif, studentProfile }) {
   const [msg, setMsg]=useState(project.appealMessage||'')
   const [sent, setSent]=useState(!!project.appealSent)
   const send=()=>{
     if (!msg.trim()) return alert('Please write your explanation.')
+    // persist to project
     setProjects(p=>p.map(x=>x.id===project.id?{...x,appealMessage:msg,appealSent:true}:x))
     pushNotif(`Your appeal for "${project.title}" was submitted.`)
+    // bridge → admin state so Appeals tab shows it
+    try {
+      const ADMIN_KEY='guc_projecthub_admin_state'
+      const raw=localStorage.getItem(ADMIN_KEY)
+      const adminState=raw?JSON.parse(raw):{}
+      const existing=adminState.appeals||[]
+      if(!existing.some(a=>a.projectId===project.id&&a.studentEmail===(studentProfile?.email||''))) {
+        adminState.appeals=[...existing,{
+          id:'a_'+Date.now(),
+          studentName:`${studentProfile?.firstName||''} ${studentProfile?.lastName||''}`.trim()||studentProfile?.email||'Student',
+          studentEmail:studentProfile?.email||'',
+          projectId:project.id,
+          projectTitle:project.title,
+          reason:msg.trim(),
+          status:'pending',
+          createdAt:new Date().toISOString().slice(0,10),
+        }]
+        localStorage.setItem(ADMIN_KEY,JSON.stringify(adminState))
+      }
+    } catch(e){ console.warn('Appeal bridge failed',e) }
     setSent(true)
   }
   return (
-    <div className="mt-3 rounded-lg border border-red-200 bg-red-50 p-3">
+    <div className="mt-3 rounded-lg border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-950/30 p-3">
       <p className="mb-1 text-xs font-semibold text-red-700 dark:text-red-400">⚑ Flagged{project.flagReason?`: ${project.flagReason}`:''}</p>
-      {sent?<p className="text-xs text-green-700">✓ Appeal submitted.</p>:
+      {sent?<p className="text-xs text-green-700 dark:text-green-400">✓ Appeal submitted.</p>:
         <><Textarea value={msg} onChange={e=>setMsg(e.target.value)} placeholder="Explain your point of view…"/>
         <div className="mt-2"><Btn size="sm" variant="danger" onClick={send}><Icon d={IC.send} size={13}/>Send Appeal</Btn></div></>
       }
@@ -1488,7 +1510,7 @@ function TasksModal({ project, setProjects, profile, onClose }) {
             {isOwner&&<p className="text-xs text-slate-400">Drag to reorder by importance.</p>}
             {tasks.map((t,i)=>(
               <div key={t.id} draggable={isOwner} onDragStart={()=>setDragIdx(i)} onDragOver={e=>e.preventDefault()} onDrop={()=>onDrop(i)}
-                className={`rounded-lg border border-slate-200 bg-white p-3 ${isOwner?'cursor-grab active:cursor-grabbing':''}`}>
+               className={`rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-3 ${isOwner?'cursor-grab active:cursor-grabbing':''}`}>
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
                     <p className="font-medium text-slate-800 dark:text-slate-200">{t.title}</p>
@@ -1549,10 +1571,10 @@ function CollabsModal({ project, setProjects, profile, pushNotif, onClose }) {
               className="w-full rounded-lg border border-slate-300 py-2 pl-9 pr-3 text-sm focus:border-blue-500 focus:outline-none"/>
           </div>
           {searchResults.length>0&&(
-            <div className="mt-1 rounded-lg border border-slate-200 bg-white shadow-sm">
+<div className="mt-1 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 shadow-sm">
               {searchResults.map(u=>(
-                <div key={u.email} className="flex items-center justify-between px-3 py-2 hover:bg-slate-50">
-                  <div><p className="text-sm font-medium text-slate-800">{u.firstName} {u.lastName}</p><p className="text-xs text-slate-400">{u.email} · {u.role}</p></div>
+                <div key={u.email} className="flex items-center justify-between px-3 py-2 hover:bg-slate-50 dark:hover:bg-slate-700">
+                  <div><p className="text-sm font-medium text-slate-800 dark:text-slate-200">{u.firstName} {u.lastName}</p><p className="text-xs text-slate-400 dark:text-slate-500">{u.email} · {u.role}</p></div>
                   <Btn size="sm" onClick={()=>invite(u.email)}><Icon d={IC.plus} size={12}/>Invite</Btn>
                 </div>
               ))}
@@ -1563,11 +1585,11 @@ function CollabsModal({ project, setProjects, profile, pushNotif, onClose }) {
           )}
         </div>
         <div>
-          <p className="mb-2 text-sm font-medium text-slate-700">Collaborators List({collabs.length})</p>
+          <p className="mb-2 text-sm font-medium text-slate-700 dark:text-slate-300">Collaborators List({collabs.length})</p>
           {collabs.length===0?<EmptyState message="No collaborators yet."/>:
             <ul className="space-y-2">
               {collabs.map(c=>(
-                <li key={c.email} className="flex items-center justify-between rounded-lg border border-slate-200 px-3 py-2.5">
+<li key={c.email} className="flex items-center justify-between rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2.5">
                   <div><p className="text-sm font-medium text-slate-800 dark:text-slate-200">{c.email}</p><p className="text-xs text-slate-400 dark:text-slate-500">Invited {new Date(c.invitedAt).toLocaleDateString()}</p></div>
                   <div className="flex items-center gap-2">
                     <Badge color={stColor[c.status]||'slate'}>{c.status}</Badge>
@@ -1757,9 +1779,9 @@ const [sortDate, setSortDate]=useState('newest')
                   </div>
                 </div>
                 {(p.instructorComments||[]).length>0&&(
-                  <div className="mt-3 rounded-lg bg-blue-50 p-3">
-                    <p className="mb-1 text-xs font-semibold text-blue-700">💬 Instructor Feedback </p>
-                    {p.instructorComments.map((c,i)=><p key={i} className="text-xs text-blue-800">"{c.text}" — <span className="text-blue-600">{c.author}</span></p>)}
+                  <div className="mt-3 rounded-lg bg-blue-50 dark:bg-blue-950/30 border border-blue-100 dark:border-blue-900 p-3">
+                    <p className="mb-1 text-xs font-semibold text-blue-700 dark:text-blue-400">💬 Instructor Feedback </p>
+                    {p.instructorComments.map((c,i)=><p key={i} className="text-xs text-blue-800 dark:text-blue-300">"{c.text}" — <span className="text-blue-600 dark:text-blue-400">{c.author}</span></p>)}
                   </div>
                 )}
                 {p.flagged&&isOwner&&<AppealSection project={p} setProjects={setProjects} pushNotif={pushNotif}/>}
@@ -2631,11 +2653,28 @@ function NotificationsSection({ notifications, setNotifications, profileEmail, s
 
   const iconFor=(n)=>{
     const msg=(n.message||'').toLowerCase()
-    if(msg.includes('message')||msg.includes('chat'))return{d:IC.chat,bg:'bg-blue-100 text-blue-600'}
-    if(msg.includes('invitation')||msg.includes('invited'))return{d:IC.users,bg:'bg-purple-100 text-purple-600'}
-    if(msg.includes('internship')||msg.includes('application')||msg.includes('job'))return{d:IC.briefcase,bg:'bg-green-100 text-green-600'}
-    if(msg.includes('appeal')||msg.includes('project'))return{d:IC.folder,bg:'bg-amber-100 text-amber-600'}
-    return{d:IC.bell,bg:'bg-slate-100 text-slate-500'}
+    if(msg.includes('message')||msg.includes('chat'))return{d:IC.chat,bg:'bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400'}
+    if(msg.includes('invitation')||msg.includes('invited'))return{d:IC.users,bg:'bg-purple-100 dark:bg-purple-900/40 text-purple-600 dark:text-purple-400'}
+    if(msg.includes('internship')||msg.includes('application')||msg.includes('job'))return{d:IC.briefcase,bg:'bg-green-100 dark:bg-green-900/40 text-green-600 dark:text-green-400'}
+    if(msg.includes('appeal')||msg.includes('project'))return{d:IC.folder,bg:'bg-amber-100 dark:bg-amber-900/40 text-amber-600 dark:text-amber-400'}
+    return{d:IC.bell,bg:'bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400'}
+  }
+
+  // Bridge: publish instructor announcements to shared key so students can read them
+  const publishAnnouncementBridge=(ann)=>{
+    const BRIDGE_KEY='guc_instructor_announcements'
+    const existing=LS.get(BRIDGE_KEY,[])
+    const filtered=existing.filter(a=>a.id!==ann.id)
+    LS.set(BRIDGE_KEY,[...filtered,{
+      id:ann.id,
+      title:ann.title,
+      message:ann.message,
+      type:ann.type||'info',
+      date:ann.date||new Date().toISOString().slice(0,10),
+      instructorEmail:rawUser.email,
+      instructorName:`${profile.firstName||rawUser.firstName||''} ${profile.lastName||rawUser.lastName||''}`.trim(),
+      courseCode:ann.courseCode||'',
+    }])
   }
 
   return (
@@ -4382,7 +4421,7 @@ const navItems=[
     return threads.filter(t=>t.messages.length>0).slice(0,4)
   })()
 
-  const NavContent=()=>(
+  const renderNav=()=>(
     <>
 {/* Sidebar top spacer to align with header height */}
       <div className="mb-4 mt-1 px-2">
@@ -4422,7 +4461,7 @@ const navItems=[
           </button>
         ))}
       </nav>
-      <div className="mt-4 border-t border-slate-100 pt-4 space-y-0.5">
+      <div className="mt-4 border-t border-slate-100 dark:border-slate-700/50 pt-4 space-y-0.5">
         <button onClick={()=>{setTab('profile');setSidebar(false)}}
           className={`group flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-150
             ${tab==='profile'?'bg-blue-700 text-white':'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-blue-700 hover:translate-x-0.5'}`}>
@@ -4444,7 +4483,7 @@ const navItems=[
     <div className="flex h-screen overflow-hidden transition-colors duration-200 bg-slate-50 dark:bg-slate-900">
       {/* Desktop Sidebar */}
       <aside className="hidden w-60 shrink-0 flex-col border-r border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-5 md:flex overflow-y-auto">
-        <NavContent/>
+        {renderNav()}
       </aside>
 
       {/* Mobile Sidebar Overlay */}
@@ -4453,7 +4492,7 @@ const navItems=[
           <div className="absolute inset-0 bg-black/40 backdrop-blur-sm"/>
 <aside className="absolute left-0 top-0 bottom-0 w-64 flex flex-col border-r border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-5"
             onClick={e=>e.stopPropagation()}>
-            <NavContent/>
+            {renderNav()}
           </aside>
         </div>
       )}

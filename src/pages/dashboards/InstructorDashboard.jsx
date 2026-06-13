@@ -2142,7 +2142,21 @@ export default function InstructorDashboard() {
   const [showMeetingModal, setShowMeetingModal] = useState(false)
   const [showAnnouncementModal, setShowAnnouncementModal] = useState(false)
   const [meetings, setMeetings] = useLS('instructor_meetings_' + rawUser.email, [])
-  const [announcements, setAnnouncements] = useLS('instructor_announcements_' + rawUser.email, [])
+  const [announcements, setAnnouncements] = useLS('instructor_announcements_' + rawUser.email, [], (next) => {
+    // mirror to shared bridge key on every save
+    const BRIDGE_KEY='guc_instructor_announcements'
+    const others=LS.get(BRIDGE_KEY,[]).filter(a=>a.instructorEmail!==rawUser.email)
+    LS.set(BRIDGE_KEY,[...others,...next.map(ann=>({
+      id:ann.id,
+      title:ann.title,
+      message:ann.message,
+      type:ann.type||'info',
+      date:ann.date||new Date().toISOString().slice(0,10),
+      instructorEmail:rawUser.email,
+      instructorName:`${profile.firstName||rawUser.firstName||''} ${profile.lastName||rawUser.lastName||''}`.trim(),
+      courseCode:ann.courseCode||'',
+    }))])
+  })
   const [meetingForm, setMeetingForm] = useState({ student:'', date:'', time:'', topic:'' })
   const [announcementForm, setAnnouncementForm] = useState({ title:'', message:'', type:'info', scheduled:false })
 
