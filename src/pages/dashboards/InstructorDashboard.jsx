@@ -1273,13 +1273,32 @@ function CoursesSection({ linkedCourses, setLinkedCourses, pushNotif }) {
   const ensureBachelor = list => list.includes('Bachelor Project') ? list : [...list, 'Bachelor Project']
   const toggle = course => {
     if (course === 'Bachelor Project') return
-    if (linkedCourses.includes(course)) {
+    const type = linkedCourses.includes(course) ? 'unlink' : 'link'
+    if (type === 'unlink') {
       setLinkedCourses(ensureBachelor(linkedCourses.filter(c => c !== course)))
-      pushNotif(`Unlink request sent for "${course}". Awaiting admin approval.`)
     } else {
       setLinkedCourses(ensureBachelor([...linkedCourses, course]))
-      pushNotif(`Link request sent for "${course}". Awaiting admin approval.`)
     }
+    pushNotif(`${type === 'link' ? 'Link' : 'Unlink'} request sent for "${course}". Awaiting admin approval.`)
+    // Write to shared bridge key so AdminDashboard picks it up
+    try {
+      const existing = LS.get('guc_link_requests', [])
+      const alreadyPending = existing.some(
+        r => r.instructorEmail === rawUser.email && r.courseCode === course && r.status === 'pending'
+      )
+      if (!alreadyPending) {
+        const newRequest = {
+          id: `lr_${Date.now()}`,
+          instructorName: `${profile.firstName || rawUser.firstName || ''} ${profile.lastName || rawUser.lastName || ''}`.trim() || rawUser.email,
+          instructorEmail: rawUser.email,
+          courseCode: course,
+          type,
+          status: 'pending',
+          createdAt: new Date().toISOString().slice(0, 10),
+        }
+        LS.set('guc_link_requests', [...existing, newRequest])
+      }
+    } catch (e) { console.warn('Link request bridge failed', e) }
   }
   const filtered = ALL_COURSES.filter(c => c.toLowerCase().includes(search.toLowerCase()))
 
@@ -2172,6 +2191,30 @@ export default function InstructorDashboard() {
   const setProfile = v => setProfileLS(v)
   const setLinkedCourses = v => setLinkedCoursesLS(v)
   const setProjects = fn => { const next = typeof fn === 'function' ? fn(projects) : fn; setSharedProjects(next); setProjectsLS(next) }
+
+  // Refresh projects from localStorage when window regains focus
+  // (catches student edits, new collaboration invitations accepted, etc.)
+  useEffect(() => {
+    const refreshProjects = () => {
+      const fresh = getSharedProjects()
+      setProjectsLS(fresh)
+    }
+    window.addEventListener('focus', refreshProjects)
+    // Also listen for storage events (cross-tab)
+    const handleStorage = (e) => {
+      if (e.key === 'student_projects') {
+        try { setProjectsLS(JSON.parse(e.newValue || '[]')) } catch {}
+      }
+      if (e.key === 'instructor_notifs_' + rawUser.email) {
+        try { setNotificationsLS(JSON.parse(e.newValue || '[]')) } catch {}
+      }
+    }
+    window.addEventListener('storage', handleStorage)
+    return () => {
+      window.removeEventListener('focus', refreshProjects)
+      window.removeEventListener('storage', handleStorage)
+    }
+  }, [rawUser.email]) // eslint-disable-line
   const setNotifications = fn => setNotificationsLS(typeof fn === 'function' ? fn(notifications) : fn)
   const pushNotif = msg => setNotificationsLS(p => [...p, { id: Date.now().toString(), message: msg, read: false, createdAt: new Date().toISOString() }])
 
@@ -2275,7 +2318,7 @@ export default function InstructorDashboard() {
         <div className="fixed inset-0 z-40 md:hidden" onClick={() => setSidebar(false)}>
           <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
           <aside className="absolute left-0 top-0 bottom-0 w-64 flex flex-col border-r border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-5" onClick={e => e.stopPropagation()}>
-            <NavContent />
+            {renderNav()}
           </aside>
         </div>
       )}

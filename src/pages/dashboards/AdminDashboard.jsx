@@ -325,6 +325,36 @@ export default function AdminDashboard() {
     refreshUsers(); setProjects(buildProjects(adminState.projectOverrides)); syncExternalLinkRequests()
   }, [navigate, refreshUsers, syncExternalLinkRequests]) // eslint-disable-line
 
+  // Poll localStorage every 8 seconds to pick up cross-dashboard writes
+  // (appeals from students, link requests from instructors)
+  useEffect(() => {
+    const poll = () => {
+      // Re-sync link requests from instructors
+      syncExternalLinkRequests()
+      // Re-read admin state to pick up new appeals written by students
+      setAdminState(prev => {
+        try {
+          const raw = localStorage.getItem(ADMIN_STATE_KEY)
+          if (!raw) return prev
+          const fresh = JSON.parse(raw)
+          // Only update appeals and linkRequests; preserve rest of in-memory state
+          const mergedAppeals = fresh.appeals || prev.appeals
+          const existingLRIds = new Set(prev.linkRequests.map(r => r.id))
+          const newLRs = (fresh.linkRequests || []).filter(r => !existingLRIds.has(r.id))
+          if (mergedAppeals.length === prev.appeals.length && newLRs.length === 0) return prev
+          return {
+            ...prev,
+            appeals: mergedAppeals,
+            linkRequests: [...prev.linkRequests, ...newLRs],
+          }
+        } catch { return prev }
+      })
+    }
+    const interval = setInterval(poll, 8000)
+    // Also poll when window regains focus
+    window.addEventListener('focus', poll)
+    return () => { clearInterval(interval); window.removeEventListener('focus', poll) }
+  }, [syncExternalLinkRequests])
   useEffect(() => { saveAdminState(adminState) }, [adminState])
 
   const currentUser = getCurrentUser()

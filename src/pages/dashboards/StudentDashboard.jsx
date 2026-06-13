@@ -916,6 +916,16 @@ function AnnouncementsWidget({ setTab }) {
       allAnnouncements.push({ ...a, courseCode:c.code, courseColor:c.color })
     })
   })
+  // Merge real instructor announcements from bridge key
+  const instructorAnnouncements = LS.get('guc_instructor_announcements', [])
+  instructorAnnouncements.forEach(a => {
+    const matchedCourse = LH_COURSES.find(c => c.code === a.courseCode)
+    allAnnouncements.push({
+      ...a,
+      courseCode: a.courseCode || 'General',
+      courseColor: matchedCourse ? matchedCourse.color : 'blue',
+    })
+  })
   allAnnouncements.sort((a, b) => new Date(b.date) - new Date(a.date))
   const shown = allAnnouncements.slice(0, 4)
 
@@ -1784,7 +1794,7 @@ const [sortDate, setSortDate]=useState('newest')
                     {p.instructorComments.map((c,i)=><p key={i} className="text-xs text-blue-800 dark:text-blue-300">"{c.text}" — <span className="text-blue-600 dark:text-blue-400">{c.author}</span></p>)}
                   </div>
                 )}
-                {p.flagged&&isOwner&&<AppealSection project={p} setProjects={setProjects} pushNotif={pushNotif}/>}
+                {p.flagged&&isOwner&&<AppealSection project={p} setProjects={setProjects} pushNotif={pushNotif} studentProfile={profile}/>}
               </Card>
             )
           })}
@@ -2479,12 +2489,19 @@ function InternshipsSection({ profile, pushNotif }) {
       seen.add(item.id)
       all.push(item)
     }
+    // Read employer approval statuses from admin state
+    const adminState = LS.get('guc_projecthub_admin_state', {})
+    const employerStatuses = adminState.employerStatuses || {}
     for (let i = 0; i < localStorage.length; i++) {
       const key = localStorage.key(i)
       if (key?.startsWith('employer_internships_')) {
+        const companyEmail = key.replace('employer_internships_', '')
+        // Only show internships from approved employers (or pending — show with badge)
+        const approvalStatus = employerStatuses[companyEmail.toLowerCase()] ?? 'pending'
+        if (approvalStatus === 'rejected') continue
         const list = LS.get(key, [])
         list.forEach((item) =>
-          push({ ...item, companyEmail: key.replace('employer_internships_', '') }),
+          push({ ...item, companyEmail, approvalStatus }),
         )
       }
     }
@@ -3756,7 +3773,15 @@ function LearningHubSection({ profile }) {
 // ── Overview Tab ─────────────────────────────────────────────────────────────
 
 function LHOverviewTab({ course, data, cc }) {
-  const { announcements, lectures, tutorials, assignments, resources } = data
+  const instructorAnnouncements = LS.get('guc_instructor_announcements', [])
+    .filter(a => !a.courseCode || a.courseCode === course.code)
+    .map(a => ({ ...a, type: a.type || 'info' }))
+  const mergedAnnouncements = [
+    ...instructorAnnouncements,
+    ...(data.announcements || []),
+  ].sort((a, b) => new Date(b.date) - new Date(a.date))
+  const { lectures, tutorials, assignments, resources } = data
+  const announcements = mergedAnnouncements
   const pending = assignments.filter(a => a.status === 'not-started' || a.status === 'in-progress')
   const annTypeStyle = {
     info:    { bg: 'bg-blue-50 dark:bg-blue-950/40 border-blue-200 dark:border-blue-800',   text: 'text-blue-700 dark:text-blue-300',   icon: IC.bell },
@@ -4344,6 +4369,7 @@ function ScheduleSection({ profile }) {
 }
 
 export default function StudentDashboard() {
+  export default function StudentDashboard() {
   const navigate=useNavigate()
   const rawUser=getCurrentUser()
   if(!rawUser||rawUser.role!=='student'){navigate('/login');return null}
@@ -4358,6 +4384,36 @@ export default function StudentDashboard() {
   const setProfile=v=>setProfileLS(v)
   const setProjects=fn=>setProjectsLS(typeof fn==='function'?fn(projects):fn)
   const setNotifications=fn=>setNotificationsLS(typeof fn==='function'?fn(notifications):fn)
+
+  // Listen for localStorage changes from other dashboards (instructor feedback, messages)
+  useEffect(() => {
+    const handleStorage = (e) => {
+      if (!e.key) return
+      // Instructor wrote feedback or rated a project
+      if (e.key === 'student_projects') {
+        try {
+          const fresh = JSON.parse(e.newValue || '[]')
+          setProjectsLS(fresh)
+        } catch {}
+      }
+      // New notification pushed by instructor/admin
+      if (e.key === 'student_notifs_' + rawUser.email) {
+        try {
+          const fresh = JSON.parse(e.newValue || '[]')
+          setNotificationsLS(fresh)
+        } catch {}
+      }
+      // New message from instructor/employer
+      if (e.key === 'student_messages_' + rawUser.email) {
+        try {
+          const fresh = JSON.parse(e.newValue || '[]')
+          setThreadsFromStorage && setThreadsFromStorage(fresh)
+        } catch {}
+      }
+    }
+    window.addEventListener('storage', handleStorage)
+    return () => window.removeEventListener('storage', handleStorage)
+  }, [rawUser.email]) // eslint-disable-line
   const setFavProjects=fn=>setFavProjectsLS(typeof fn==='function'?fn(favProjects):fn)
   const setFavPortfolios=fn=>setFavPortfoliosLS(typeof fn==='function'?fn(favPortfolios):fn)
   const notifsEnabled=LS.get('student_notifs_on_'+rawUser.email,true)
@@ -4796,4 +4852,5 @@ const navItems=[
       </div>
     </div>
   )
+}
 }
