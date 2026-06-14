@@ -220,7 +220,7 @@ function InstructorQuickActions({ setTab, openFeedbackCenter, openMeetingModal, 
   return (
     <Card>
       <h3 className="mb-3 font-semibold text-slate-800 dark:text-slate-200">Quick Actions</h3>
-      <div className="grid grid-cols-3 gap-2 sm:grid-cols-4 lg:grid-cols-3 xl:grid-cols-4">
+      <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
         {actions.map(a => (
           <button key={a.label} onClick={a.fn}
             className={`flex flex-col items-center gap-1.5 rounded-xl border p-3 text-center transition-all duration-150 hover:-translate-y-0.5 hover:shadow-sm active:scale-95 ${a.color}`}>
@@ -2232,7 +2232,6 @@ export default function InstructorDashboard() {
 
   const navItems = [
     { id: 'overview',      label: 'Overview',              icon: IC.home },
-    { id: 'profile',       label: 'My Profile',            icon: IC.user },
     { id: 'courses',       label: 'My Courses',            icon: IC.book },
     { id: 'projects',      label: 'Projects',              icon: IC.folder },
     { id: 'review-queue',  label: 'Review Queue',          icon: IC.inbox, badge: reviewQueueCount },
@@ -2293,7 +2292,7 @@ export default function InstructorDashboard() {
           </button>
         ))}
       </nav>
-      <div className="mt-4 border-t border-slate-100 dark:border-slate-700/50 pt-4 space-y-0.5">
+      <div className="mt-4 border-t border-slate-200 dark:border-slate-700 pt-4 space-y-0.5">
         <button onClick={() => { setTab('profile'); setSidebar(false) }}
           className={`group flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-150 ${tab === 'profile' ? 'bg-blue-700 text-white' : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-blue-700 dark:hover:text-blue-400 hover:translate-x-0.5'}`}>
           <Icon d={IC.user} size={16} /><span>My Profile</span>
@@ -2335,7 +2334,7 @@ export default function InstructorDashboard() {
                 <Icon d={IC.book} size={14} />
               </div>
               <div className="flex flex-col leading-none">
-                <span className="text-[10px] font-semibold uppercase tracking-widest text-blue-600 dark:text-blue-400 hidden sm:block">BI × ENG V2</span>
+                <span className="text-[10px] font-semibold uppercase tracking-widest text-blue-600 dark:text-blue-400 hidden sm:block">ProjectHub</span>
                 <span className="text-sm font-bold text-slate-900 dark:text-white leading-tight">ProjectHub</span>
               </div>
             </button>

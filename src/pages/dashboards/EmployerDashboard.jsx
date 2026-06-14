@@ -532,7 +532,7 @@ function EmployerDashboard() {
           </button>
         ))}
       </nav>
-      <div className="mt-4 border-t border-slate-100 dark:border-slate-700/50 pt-4 space-y-0.5">
+      <div className="mt-4 border-t border-slate-200 dark:border-slate-700 pt-4 space-y-0.5">
         <button onClick={handleLogout} className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-slate-600 dark:text-slate-300 transition-all duration-150 hover:bg-red-50 dark:hover:bg-red-950/30 hover:text-red-600 dark:hover:text-red-400">
           <Icon d={IC.logout} size={16} /><span>Logout</span>
         </button>
@@ -569,7 +569,7 @@ function EmployerDashboard() {
             <button onClick={() => navigate('/')} className="flex items-center gap-2 rounded-lg px-2 py-1 hover:opacity-80 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all group">
               <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-blue-700 shadow-sm"><Icon d={IC.briefcase} size={14} /></div>
               <div className="flex flex-col leading-none">
-                <span className="text-[10px] font-semibold uppercase tracking-widest text-blue-600 dark:text-blue-400 hidden sm:block">BI × ENG V2</span>
+                <span className="text-[10px] font-semibold uppercase tracking-widest text-blue-600 dark:text-blue-400 hidden sm:block">ProjectHub</span>
                 <span className="text-sm font-bold text-slate-900 dark:text-white leading-tight">ProjectHub</span>
               </div>
             </button>

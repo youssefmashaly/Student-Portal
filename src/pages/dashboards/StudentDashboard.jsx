@@ -2329,7 +2329,7 @@ function MessagesSection({ profile, pushNotif }) {
               return (
 <button key={t.with} onClick={()=>{setActive(t.with);markThreadRead(t.with)}}
                   className={`w-full flex items-center gap-3 px-4 py-3 text-left transition-all duration-150 border-b border-slate-100 dark:border-slate-700/50
-                    ${isActive?'bg-blue-700':'hover:bg-white dark:hover:bg-slate-800'}`}>
+                    ${isActive?'bg-blue-700':'hover:bg-slate-100 dark:hover:bg-slate-800'}`}>
                   <div className={`relative flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-sm font-bold transition-colors duration-150
                     ${isActive?'bg-blue-500 text-white':'bg-blue-100 text-blue-700'}`}>
                     {t.with[0].toUpperCase()}
@@ -3731,7 +3731,7 @@ function LearningHubSection({ profile }) {
           {/* Tab bar */}
           <div className="flex gap-1 overflow-x-auto rounded-xl bg-slate-100 dark:bg-slate-800 p-1 border border-slate-200 dark:border-slate-700">
             {TABS.map(t => (
-              <button key={t.id} onClick={() => setActiveTab(t.id)}
+              <button key={t.id} onClick={() => setActiveTab(t.id)} title={t.label} aria-label={t.label}
                 className={`flex shrink-0 items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium transition-all duration-150 ${activeTab===t.id?'bg-white dark:bg-slate-700 text-blue-700 dark:text-blue-400 shadow-sm':'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'}`}>
                 <Icon d={t.icon} size={13}/><span className="hidden sm:inline">{t.label}</span>
               </button>
@@ -3754,7 +3754,7 @@ function LearningHubSection({ profile }) {
           {/* Side panel tab strip */}
           <div className="flex gap-1 rounded-xl bg-slate-100 dark:bg-slate-800 p-1 border border-slate-200 dark:border-slate-700">
             {SIDE_TABS.map(t => (
-              <button key={t.id} onClick={() => setSidePanel(t.id)} title={t.label}
+              <button key={t.id} onClick={() => setSidePanel(t.id)} title={t.label} aria-label={t.label}
                 className={`flex flex-1 items-center justify-center gap-1 rounded-lg py-1.5 text-xs font-medium transition-all duration-150 ${sidePanel===t.id?'bg-white dark:bg-slate-700 text-blue-700 dark:text-blue-400 shadow-sm':'text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300'}`}>
                 <Icon d={t.icon} size={12}/>
               </button>
@@ -4318,7 +4318,7 @@ function ScheduleSection({ profile }) {
           ?<Card><EmptyState message="No events yet. Add your classes, deadlines, and meetings."/></Card>
           :<div className="space-y-2">
             {[...events].sort((a,b)=>DAYS.indexOf(a.day)-DAYS.indexOf(b.day)||a.time.localeCompare(b.time)).map(e=>(
-<div key={e.id} className="flex items-center gap-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-4 py-3">
+<div key={e.id} className="flex items-center gap-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-4 py-3 transition-colors hover:border-blue-200 dark:hover:border-blue-700 hover:bg-slate-50 dark:hover:bg-slate-700/30">
                 <div className={`h-2.5 w-2.5 shrink-0 rounded-full ${typeDot[e.type]}`}/>
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium text-slate-800 dark:text-slate-200">{e.title}</p>
@@ -4502,7 +4502,7 @@ const navItems=[
           </button>
         ))}
       </nav>
-      <div className="mt-4 border-t border-slate-100 dark:border-slate-700/50 pt-4 space-y-0.5">
+      <div className="mt-4 border-t border-slate-200 dark:border-slate-700 pt-4 space-y-0.5">
         <button onClick={()=>{setTab('profile');setSidebar(false)}}
           className={`group flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-150
             ${tab==='profile'?'bg-blue-700 text-white':'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-blue-700 hover:translate-x-0.5'}`}>
@@ -4561,7 +4561,7 @@ const navItems=[
               </div>
               <div className="flex flex-col leading-none">
                 <span className="text-[10px] font-semibold uppercase tracking-widest text-blue-600 dark:text-blue-400 hidden sm:block">
-                  BI × ENG V2
+                  ProjectHub
                 </span>
                 <span className="text-sm font-bold text-slate-900 dark:text-white leading-tight">
                   ProjectHub
