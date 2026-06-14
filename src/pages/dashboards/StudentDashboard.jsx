@@ -4369,7 +4369,6 @@ function ScheduleSection({ profile }) {
 }
 
 export default function StudentDashboard() {
-  export default function StudentDashboard() {
   const navigate=useNavigate()
   const rawUser=getCurrentUser()
   if(!rawUser||rawUser.role!=='student'){navigate('/login');return null}
@@ -4853,4 +4852,4 @@ const navItems=[
     </div>
   )
 }
-}
+
