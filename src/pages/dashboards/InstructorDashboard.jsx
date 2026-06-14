@@ -1394,7 +1394,7 @@ function ProjectFeedbackModal({ project, user, setProjects, pushNotif, onClose }
   return (
     <Modal title={`Project: ${project.title}`} onClose={onClose} wide>
       <div className="space-y-6">
-        <div className="rounded-lg bg-slate-50 dark:bg-slate-700/50 p-4 space-y-2">
+        <div className="rounded-lg bg-slate-50 dark:bg-slate-700/50 border border-slate-100 dark:border-slate-700 p-4 space-y-2">
           <div className="flex flex-wrap gap-2">
             <Badge color="blue">{project.course}</Badge>
             <Badge color={project.visibility === 'public' ? 'green' : 'slate'}>{project.visibility}</Badge>
@@ -1651,10 +1651,10 @@ function NotificationsSection({ notifications, setNotifications, profileEmail })
 
   const iconFor = n => {
     const msg = (n.message || '').toLowerCase()
-    if (msg.includes('message') || msg.includes('chat')) return { d: IC.chat, bg: 'bg-blue-100 dark:bg-blue-900/50 text-blue-600 dark:text-blue-300' }
-    if (msg.includes('invitation') || msg.includes('invited')) return { d: IC.users, bg: 'bg-purple-100 dark:bg-purple-900/50 text-purple-600 dark:text-purple-300' }
-    if (msg.includes('project') || msg.includes('feedback')) return { d: IC.folder, bg: 'bg-amber-100 dark:bg-amber-900/50 text-amber-600 dark:text-amber-300' }
-    if (msg.includes('flag')) return { d: IC.flag, bg: 'bg-red-100 dark:bg-red-900/50 text-red-600 dark:text-red-300' }
+    if (msg.includes('message') || msg.includes('chat')) return { d: IC.chat, bg: 'bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400' }
+    if (msg.includes('invitation') || msg.includes('invited')) return { d: IC.users, bg: 'bg-purple-100 dark:bg-purple-900/40 text-purple-600 dark:text-purple-400' }
+    if (msg.includes('project') || msg.includes('feedback')) return { d: IC.folder, bg: 'bg-amber-100 dark:bg-amber-900/40 text-amber-600 dark:text-amber-400' }
+    if (msg.includes('flag')) return { d: IC.flag, bg: 'bg-red-100 dark:bg-red-900/40 text-red-600 dark:text-red-400' }
     return { d: IC.bell, bg: 'bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400' }
   }
 
