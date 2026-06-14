@@ -322,6 +322,7 @@ export default function AdminDashboard() {
   useEffect(() => {
     const cu = getCurrentUser()
     if (!cu||cu.role!=='admin') { navigate('/'); return }
+    if (cu.isActive===false) { logoutUser(); navigate('/'); return }
     refreshUsers(); setProjects(buildProjects(adminState.projectOverrides)); syncExternalLinkRequests()
   }, [navigate, refreshUsers, syncExternalLinkRequests]) // eslint-disable-line
 

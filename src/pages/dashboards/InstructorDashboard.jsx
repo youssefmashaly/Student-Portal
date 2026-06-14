@@ -201,7 +201,7 @@ function buildSupervisionStats(user, projects) {
 }
 
 // ── Quick Actions Panel ───────────────────────────────────────────────────────
-function InstructorQuickActions({ setTab, openFeedbackCenter, openMeetingModal, openAnnouncementModal }) {
+function InstructorQuickActions({ setTab, openFeedbackCenter, openMeetingModal, openAnnouncementModal, exportProjects }) {
   const actions = [
     { label:'Review Submissions', icon:IC.folder,     fn:() => setTab('projects'),   color:'bg-blue-50 dark:bg-blue-950/40 hover:bg-blue-100 dark:hover:bg-blue-900/50 text-blue-700 dark:text-blue-300 border-blue-100 dark:border-blue-900' },
     { label:'Manage Students',    icon:IC.users,      fn:() => setTab('portfolios'), color:'bg-purple-50 dark:bg-purple-950/40 hover:bg-purple-100 dark:hover:bg-purple-900/50 text-purple-700 dark:text-purple-300 border-purple-100 dark:border-purple-900' },
@@ -212,7 +212,7 @@ function InstructorQuickActions({ setTab, openFeedbackCenter, openMeetingModal, 
     { label:'Review Queue',       icon:IC.inbox,      fn:() => setTab('review-queue'),color:'bg-indigo-50 dark:bg-indigo-950/40 hover:bg-indigo-100 dark:hover:bg-indigo-900/50 text-indigo-700 dark:text-indigo-300 border-indigo-100 dark:border-indigo-900' },
     { label:'Resources',          icon:IC.bookOpen,   fn:() => setTab('resources'),   color:'bg-teal-50 dark:bg-teal-950/40 hover:bg-teal-100 dark:hover:bg-teal-900/50 text-teal-700 dark:text-teal-300 border-teal-100 dark:border-teal-900' },
     { label:'Export Report',      icon:IC.download2,  fn:() => {
-        const assigned = window.__instructor_projects || []
+        const assigned = exportProjects || []
         const blob = new Blob([JSON.stringify(assigned.map(p=>({title:p.title,course:p.course,owner:p.owner,rating:p.rating,tasks:(p.tasks||[]).length,feedback:(p.instructorComments||[]).length})), null, 2)], {type:'application/json'})
         const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'instructor-report.json'; a.click()
       }, color:'bg-emerald-50 dark:bg-emerald-950/40 hover:bg-emerald-100 dark:hover:bg-emerald-900/50 text-emerald-700 dark:text-emerald-300 border-emerald-100 dark:border-emerald-900' },
@@ -1179,7 +1179,7 @@ function Overview({ user, profile, linkedCourses, notifications, projects, setTa
       </Card>
 
       {/* ── Quick Actions ── */}
-      <InstructorQuickActions setTab={setTab} openFeedbackCenter={openFeedbackCenter} openMeetingModal={openMeetingModal} openAnnouncementModal={openAnnouncementModal}/>
+      <InstructorQuickActions setTab={setTab} openFeedbackCenter={openFeedbackCenter} openMeetingModal={openMeetingModal} openAnnouncementModal={openAnnouncementModal} exportProjects={projects.filter(p => (p.collaborators||[]).some(c=>c.email===user.email&&c.status==='accepted'))}/>
 
       {/* ── Student Performance + At-Risk ── */}
       <div className="grid gap-4 lg:grid-cols-2">
@@ -2001,15 +2001,15 @@ function StudentPortfoliosSection() {
 }
 
 // ── Settings ──────────────────────────────────────────────────────────────────
-function SettingsSection({ rawUser, initialTab = 'appearance' }) {
+function SettingsSection({ rawUser, initialTab = 'appearance', settingsTab }) {
   const { isDark, setTheme } = useTheme()
   const [profilePublic, setProfilePublic] = useLS('instructor_setting_profile_public_' + rawUser.email, true)
   const [msgNotifs, setMsgNotifs] = useLS('instructor_setting_msg_notifs_' + rawUser.email, true)
   const [cooldown, setCooldown] = useState(false)
   const [cooldownCount, setCooldownCount] = useState(5)
-  const [tab, setTab] = useState(initialTab)
+  const [tab, setTab] = useState(settingsTab || initialTab)
 
-  useEffect(() => { setTab(initialTab) }, [initialTab])
+  useEffect(() => { setTab(settingsTab || initialTab) }, [initialTab, settingsTab])
   const startCooldown = () => {
     setCooldown(true); setCooldownCount(5)
     const t = setInterval(() => setCooldownCount(c => {
@@ -2153,6 +2153,7 @@ export default function InstructorDashboard() {
   const { isDark, setTheme, toggleTheme } = useTheme()
 
   if (!rawUser || rawUser.role !== 'instructor') { navigate('/login'); return null }
+  if (rawUser.isActive === false) { logoutUser(); navigate('/login'); return null }
   seedAcademicPlatformDemoData({ instructorEmail: rawUser.email })
 
   const [tab, setTab] = useState('overview')
@@ -2208,6 +2209,9 @@ export default function InstructorDashboard() {
       if (e.key === 'instructor_notifs_' + rawUser.email) {
         try { setNotificationsLS(JSON.parse(e.newValue || '[]')) } catch {}
       }
+      if (e.key === 'instructor_messages_' + rawUser.email) {
+        setMessagesSyncTick(t => t + 1)
+      }
     }
     window.addEventListener('storage', handleStorage)
     return () => {
@@ -2248,11 +2252,9 @@ export default function InstructorDashboard() {
 
   const handleLogout = () => { setTheme(false); logoutUser(); navigate('/') }
 
-  // Expose for export report
-  useEffect(() => { window.__instructor_projects = projects.filter(p => (p.collaborators||[]).some(c=>c.email===rawUser.email&&c.status==='accepted')) }, [projects, rawUser.email])
-
   const [profileDropdown, setProfileDropdown] = useState(false)
   const [notifDropdown, setNotifDropdown] = useState(false)
+  const [messagesSyncTick, setMessagesSyncTick] = useState(0)
   const profileRef = useRef(null)
   const notifRef = useRef(null)
 
@@ -2453,7 +2455,7 @@ export default function InstructorDashboard() {
             {tab === 'projects'      && <ProjectsSection user={rawUser} projects={projects} setProjects={setProjects} pushNotif={pushNotif} />}
             {tab === 'invitations'   && <InvitationsSection user={rawUser} projects={projects} setProjects={setProjects} pushNotif={pushNotif} />}
             {tab === 'notifications' && <NotificationsSection notifications={notifications} setNotifications={setNotifications} profileEmail={rawUser.email} />}
-            {tab === 'messages'      && <MessagesSection user={rawUser} pushNotif={pushNotif} />}
+            {tab === 'messages'      && <MessagesSection key={messagesSyncTick} user={rawUser} pushNotif={pushNotif} />}
             {tab === 'recommended'   && <RecommendedSection user={rawUser} projects={projects} linkedCourses={linkedCourses} />}
             {tab === 'portfolios'    && <StudentPortfoliosSection />}
            {tab === 'settings'      && <SettingsSection rawUser={rawUser} initialTab={settingsTab} />}
@@ -2465,8 +2467,7 @@ export default function InstructorDashboard() {
                 <AnnouncementsManagement announcements={announcements} onAdd={() => setShowAnnouncementModal(true)} onRemove={id => setAnnouncements(p => p.filter(a => a.id !== id))}/>
               </div>
             )}
-            {tab === 'review-queue' && null /* rendered above */}
-          </div>
+            </div>
         </main>
       </div>
 

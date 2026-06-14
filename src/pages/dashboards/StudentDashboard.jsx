@@ -4256,7 +4256,6 @@ function ScheduleSection({ profile }) {
         <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-blue-600 dark:text-blue-400">Today — {todayName}</p>
         {todayEvents.length===0
           ?<p className="text-sm text-slate-400 dark:text-slate-500">Nothing scheduled for today. Enjoy your free time! 🎉</p>
-          // (unchanged below)
           :<div className="flex flex-wrap gap-2">
             {todayEvents.map(e=>(
               <div key={e.id} className={`flex items-center gap-2 rounded-lg border px-3 py-1.5 text-xs font-medium ${typeColor[e.type]}`}>
@@ -4373,6 +4372,7 @@ export default function StudentDashboard() {
   const navigate=useNavigate()
   const rawUser=getCurrentUser()
   if(!rawUser||rawUser.role!=='student'){navigate('/login');return null}
+  if(rawUser.isActive===false){logoutUser();navigate('/login');return null}
   seedAcademicPlatformDemoData()
   const [tab, setTab]=useState('overview')
   const [sidebarOpen, setSidebar]=useState(false)
@@ -4403,12 +4403,9 @@ export default function StudentDashboard() {
           setNotificationsLS(fresh)
         } catch {}
       }
-      // New message from instructor/employer
+      // New message from instructor/employer — bump a counter to force MessagesSection remount/refresh
       if (e.key === 'student_messages_' + rawUser.email) {
-        try {
-          const fresh = JSON.parse(e.newValue || '[]')
-          setThreadsFromStorage && setThreadsFromStorage(fresh)
-        } catch {}
+        setMessagesSyncTick(t => t + 1)
       }
     }
     window.addEventListener('storage', handleStorage)
@@ -4416,6 +4413,7 @@ export default function StudentDashboard() {
   }, [rawUser.email]) // eslint-disable-line
   const setFavProjects=fn=>setFavProjectsLS(typeof fn==='function'?fn(favProjects):fn)
   const setFavPortfolios=fn=>setFavPortfoliosLS(typeof fn==='function'?fn(favPortfolios):fn)
+  const [messagesSyncTick, setMessagesSyncTick]=useState(0)
   const notifsEnabled=LS.get('student_notifs_on_'+rawUser.email,true)
 const pushNotif=msg=>{if(!notifsEnabled)return;setNotificationsLS(p=>[...p,{id:Date.now().toString(),message:msg,read:false,createdAt:new Date().toISOString()}])}
   const unread=notifications.filter(n=>!n.read).length
@@ -4840,7 +4838,7 @@ const navItems=[
             {tab==='portfolios'&&<ExplorePortfoliosSection projects={projects} favPortfolios={favPortfolios} setFavPortfolios={setFavPortfolios} setTab={setTab}/>}
             {tab==='favorites'&&<FavoritesSection projects={projects} favProjects={favProjects} setFavProjects={setFavProjects} favPortfolios={favPortfolios} setFavPortfolios={setFavPortfolios}/>}
             {tab==='recommended'&&<RecommendedSection profile={p} projects={projects} favProjects={favProjects} setFavProjects={setFavProjects}/>}
-            {tab==='messages'&&<MessagesSection profile={p} pushNotif={pushNotif}/>}
+            {tab==='messages'&&<MessagesSection key={messagesSyncTick} profile={p} pushNotif={pushNotif}/>}
             {tab==='internships'&&<InternshipsSection profile={p} pushNotif={pushNotif}/>}
             {tab==='stats'&&<StatsSection projects={projects} profile={p}/>}
             {tab==='settings'&&<SettingsSection profile={p} rawUser={rawUser} initialTab={settingsTab}/>}
