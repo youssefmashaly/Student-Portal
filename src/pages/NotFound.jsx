@@ -9,7 +9,7 @@ function NotFound() {
         Page not found
       </h1>
       <p className="mt-3 max-w-lg text-sm text-slate-600 dark:text-slate-400 sm:text-base">
-        The page you requested does not exist or may have been moved. Return to the home page to continue exploring BI X ENG V2 ProjectHub.
+        The page you requested does not exist or may have been moved. Return to the home page to continue exploring ProjectHub.
       </p>
       <Link to="/" className="mt-7">
         <Button>Back to Home</Button>

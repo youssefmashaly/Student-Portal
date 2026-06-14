@@ -24,7 +24,7 @@ function Landing() {
         <div className="pointer-events-none absolute -bottom-20 -left-12 h-52 w-52 rounded-full bg-slate-200/10 blur-3xl" />
         <div className="relative">
           <p className="text-sm font-semibold uppercase tracking-[0.2em] text-blue-100">
-            BI X ENG V2 ProjectHub
+            ProjectHub
           </p>
           <h1 className="mt-4 max-w-3xl text-3xl font-bold leading-tight sm:text-4xl lg:text-5xl">
             Showcase high-impact GUC projects with a premium portfolio experience.

@@ -59,9 +59,9 @@ function ForgotPassword() {
   }
 
   return (
-    <div className="mx-auto w-full max-w-md rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
-      <h1 className="text-2xl font-bold text-slate-900">Forgot Password</h1>
-      <p className="mt-1 text-sm text-slate-600">
+    <div className="mx-auto w-full max-w-md rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-6 shadow-sm">
+      <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Forgot Password</h1>
+      <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
         Frontend-only recovery simulation for Milestone 2.
       </p>
 

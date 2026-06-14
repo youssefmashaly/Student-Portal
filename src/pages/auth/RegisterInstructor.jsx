@@ -60,10 +60,10 @@ function RegisterInstructor() {
   }
 
   return (
-    <div className="mx-auto w-full max-w-lg rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
-      <h1 className="text-2xl font-bold text-slate-900">Register as Instructor</h1>
-      <p className="mt-1 text-sm text-slate-600">
-        Create your course instructor account for BI X ENG V2 ProjectHub.
+    <div className="mx-auto w-full max-w-lg rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-6 shadow-sm">
+      <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Register as Instructor</h1>
+      <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
+        Create your course instructor account for ProjectHub.
       </p>
 
       <form className="mt-5 grid gap-4 sm:grid-cols-2" onSubmit={handleSubmit}>

@@ -38,7 +38,7 @@ const { isDark, toggleTheme } = useTheme()
     <header className="border-b border-slate-200 dark:border-slate-700 bg-white/95 dark:bg-slate-900/95 backdrop-blur">
       <div className="mx-auto flex w-full max-w-6xl items-center justify-between px-4 py-4 sm:px-6 lg:px-8">
         <Link to="/" className="text-lg font-bold tracking-tight text-slate-900 dark:text-white sm:text-xl">
-          BI X ENG V2 <span className="text-blue-700">ProjectHub</span>
+          <span className="text-blue-700">ProjectHub</span>
         </Link>
         <button
           type="button"

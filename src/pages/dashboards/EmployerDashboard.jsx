@@ -79,10 +79,12 @@ function EmployerDashboard() {
   const user = getCurrentUser()
   const navigate = useNavigate()
   const { isDark, setTheme, toggleTheme } = useTheme()
-  const empId = user?.email?.toLowerCase() || 'default'
+  if (!user || user.role !== 'employer') { navigate('/login'); return null }
+  if (user.isActive === false) { logoutUser(); navigate('/login'); return null }
+  const empId = user.email.toLowerCase()
 
   const storageKeys = {
-    internships: `emp_interns_${empId}`,
+    internships: `employer_internships_${empId}`,
     favorites: `emp_favs_${empId}`,
     messages: `emp_msgs_${empId}`,
     notifications: `emp_notifs_${empId}`

@@ -68,8 +68,8 @@ function buildInstructors(platformUsers) {
 function buildEmployers(platformUsers, employerStatuses) {
   const built = platformUsers.filter(u => u.role === 'employer').map(u => {
     const empId = u.email.toLowerCase()
-    const profile = LS.get(`guc_emp_profile_${empId}`, {})
-    const internships = LS.get(`emp_interns_${empId}`, [])
+    const profile = LS.get(`employer_profile_${empId}`, {})
+    const internships = LS.get(`employer_internships_${empId}`, [])
     const documents = []
     if (profile.taxCertificate) documents.push({ id: `tax_${empId}`, name: profile.taxCertificateName||'Tax Certificate', content: profile.taxCertificate, isImage: profile.taxCertificate.startsWith('data:image') })
     if (profile.logo?.startsWith('data:')) documents.push({ id: `logo_${empId}`, name: 'Company Logo', content: profile.logo, isImage: true })
