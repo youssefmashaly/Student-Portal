@@ -4370,9 +4370,12 @@ function ScheduleSection({ profile }) {
 
 export default function StudentDashboard() {
   const navigate=useNavigate()
-  const rawUser=getCurrentUser()
-  if(!rawUser||rawUser.role!=='student'){navigate('/login');return null}
-  if(rawUser.isActive===false){logoutUser();navigate('/login');return null}
+  const rawUser=getCurrentUser()||{}
+  useEffect(()=>{
+    const cu=getCurrentUser()
+    if(!cu||cu.role!=='student'){navigate('/login');return}
+    if(cu.isActive===false){logoutUser();navigate('/login')}
+  },[navigate])
   seedAcademicPlatformDemoData()
   const [tab, setTab]=useState('overview')
   const [sidebarOpen, setSidebar]=useState(false)

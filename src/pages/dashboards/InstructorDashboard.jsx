@@ -1268,7 +1268,7 @@ function ProfileSection({ user, profile, setProfile }) {
 }
 
 // ── Courses ───────────────────────────────────────────────────────────────────
-function CoursesSection({ linkedCourses, setLinkedCourses, pushNotif }) {
+function CoursesSection({ linkedCourses, setLinkedCourses, pushNotif, rawUser, profile }) {
   const [search, setSearch] = useState('')
   const ensureBachelor = list => list.includes('Bachelor Project') ? list : [...list, 'Bachelor Project']
   const toggle = course => {
@@ -1707,7 +1707,7 @@ function NotificationsSection({ notifications, setNotifications, profileEmail })
 
 // ── Messages ──────────────────────────────────────────────────────────────────
 function MessagesSection({ user, pushNotif }) {
-  const [threads, setThreads] = useLS('instructor_messages_' + user.email, [])
+  const [threads, setThreads] = useLS('student_messages_' + user.email, [])
   const [active, setActive] = useState(null)
   const [newEmail, setNewEmail] = useState('')
   const [text, setText] = useState('')
@@ -2149,11 +2149,14 @@ function SettingsSection({ rawUser, initialTab = 'appearance', settingsTab }) {
 // ── Main Dashboard ────────────────────────────────────────────────────────────
 export default function InstructorDashboard() {
   const navigate = useNavigate()
-  const rawUser = getCurrentUser()
+  const rawUser = getCurrentUser() || {}
   const { isDark, setTheme, toggleTheme } = useTheme()
 
-  if (!rawUser || rawUser.role !== 'instructor') { navigate('/login'); return null }
-  if (rawUser.isActive === false) { logoutUser(); navigate('/login'); return null }
+  useEffect(() => {
+    const cu = getCurrentUser()
+    if (!cu || cu.role !== 'instructor') { navigate('/login'); return }
+    if (cu.isActive === false) { logoutUser(); navigate('/login') }
+  }, [navigate])
   seedAcademicPlatformDemoData({ instructorEmail: rawUser.email })
 
   const [tab, setTab] = useState('overview')
@@ -2187,7 +2190,7 @@ export default function InstructorDashboard() {
   const [profile, setProfileLS] = useLS('instructor_profile_' + rawUser.email, { firstName: rawUser.firstName || '', lastName: rawUser.lastName || '', bio: '', research: '', education: '' })
   const [linkedCourses, setLinkedCoursesLS] = useLS('instructor_courses_' + rawUser.email, ['Bachelor Project'])
   const [projects, setProjectsLS] = useState(() => getSharedProjects())
-  const [notifications, setNotificationsLS] = useLS('instructor_notifs_' + rawUser.email, [])
+  const [notifications, setNotificationsLS] = useLS('student_notifs_' + rawUser.email, [])
 
   const setProfile = v => setProfileLS(v)
   const setLinkedCourses = v => setLinkedCoursesLS(v)
@@ -2206,10 +2209,10 @@ export default function InstructorDashboard() {
       if (e.key === 'student_projects') {
         try { setProjectsLS(JSON.parse(e.newValue || '[]')) } catch {}
       }
-      if (e.key === 'instructor_notifs_' + rawUser.email) {
+      if (e.key === 'student_notifs_' + rawUser.email) {
         try { setNotificationsLS(JSON.parse(e.newValue || '[]')) } catch {}
       }
-      if (e.key === 'instructor_messages_' + rawUser.email) {
+      if (e.key === 'student_messages_' + rawUser.email) {
         setMessagesSyncTick(t => t + 1)
       }
     }
@@ -2451,7 +2454,7 @@ export default function InstructorDashboard() {
             {tab === 'course-analytics' && <CourseAnalyticsSection user={rawUser} projects={projects} linkedCourses={linkedCourses}/>}
             {tab === 'resources'        && <ResourceManagementSection user={rawUser}/>}
             {tab === 'profile'       && <ProfileSection user={rawUser} profile={profile} setProfile={setProfile} />}
-            {tab === 'courses'       && <CoursesSection linkedCourses={linkedCourses} setLinkedCourses={setLinkedCourses} pushNotif={pushNotif} />}
+            {tab === 'courses'       && <CoursesSection linkedCourses={linkedCourses} setLinkedCourses={setLinkedCourses} pushNotif={pushNotif} rawUser={rawUser} profile={profile} />}
             {tab === 'projects'      && <ProjectsSection user={rawUser} projects={projects} setProjects={setProjects} pushNotif={pushNotif} />}
             {tab === 'invitations'   && <InvitationsSection user={rawUser} projects={projects} setProjects={setProjects} pushNotif={pushNotif} />}
             {tab === 'notifications' && <NotificationsSection notifications={notifications} setNotifications={setNotifications} profileEmail={rawUser.email} />}

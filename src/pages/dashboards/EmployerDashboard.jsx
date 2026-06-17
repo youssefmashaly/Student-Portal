@@ -76,12 +76,15 @@ function Link({ to, children, className = '' }) {
 }
 
 function EmployerDashboard() {
-  const user = getCurrentUser()
+  const user = getCurrentUser() || {}
   const navigate = useNavigate()
   const { isDark, setTheme, toggleTheme } = useTheme()
-  if (!user || user.role !== 'employer') { navigate('/login'); return null }
-  if (user.isActive === false) { logoutUser(); navigate('/login'); return null }
-  const empId = user.email.toLowerCase()
+  useEffect(() => {
+    const cu = getCurrentUser()
+    if (!cu || cu.role !== 'employer') { navigate('/login'); return }
+    if (cu.isActive === false) { logoutUser(); navigate('/login') }
+  }, [navigate])
+  const empId = (user.email || '').toLowerCase()
 
   const storageKeys = {
     internships: `employer_internships_${empId}`,
@@ -241,6 +244,20 @@ function EmployerDashboard() {
   useEffect(() => localStorage.setItem(storageKeys.favorites, JSON.stringify(favorites)), [favorites, storageKeys.favorites])
   useEffect(() => localStorage.setItem(storageKeys.messages, JSON.stringify(messages)), [messages, storageKeys.messages])
   useEffect(() => localStorage.setItem(storageKeys.notifications, JSON.stringify(userNotifications)), [userNotifications, storageKeys.notifications])
+  useEffect(() => {
+    const apps = JSON.parse(localStorage.getItem(`employer_applications_${empId}`) || '[]')
+    if (!Array.isArray(apps) || apps.length === 0) return
+    const allUsers = JSON.parse(localStorage.getItem('guc_projecthub_users') || '[]')
+    setInternships(prev => prev.map(intern => {
+      const newApps = apps.filter(a => a.internshipId === intern.id && !intern.applicants.some(ap => ap.appId === a.id))
+      if (newApps.length === 0) return intern
+      const mapped = newApps.map(a => {
+        const matchedUser = allUsers.find(u => u.email?.toLowerCase() === a.studentEmail?.toLowerCase())
+        return { id: a.id, appId: a.id, name: matchedUser ? `${matchedUser.firstName} ${matchedUser.lastName}` : a.studentEmail, email: a.studentEmail, status: a.status, contributionScore: null }
+      })
+      return { ...intern, applicants: [...intern.applicants, ...mapped] }
+    }))
+  }, [])
   useEffect(() => localStorage.setItem(`emp_saved_candidates_${empId}`, JSON.stringify(savedCandidates)), [savedCandidates, empId])
   useEffect(() => localStorage.setItem(`emp_recent_candidates_${empId}`, JSON.stringify(recentCandidates)), [recentCandidates, empId])
   useEffect(() => {
