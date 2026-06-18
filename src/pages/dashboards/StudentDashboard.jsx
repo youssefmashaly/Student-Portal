@@ -3086,6 +3086,21 @@ const LH_COLOR_MAP = {
   rose:   { bg:'bg-rose-50 dark:bg-rose-950/40',     text:'text-rose-700 dark:text-rose-300',     bar:'bg-rose-600',   dot:'bg-rose-500',   border:'border-rose-200 dark:border-rose-800',     icon:'bg-rose-100 dark:bg-rose-900/60 text-rose-700 dark:text-rose-300' },
 }
 
+// Phase 8 — shared material-type badge config (Lecture/Tutorial/Lab/Assignment/Recording/Past Exam/Resource)
+const LH_TYPE_CONFIG = {
+  lecture:    { label:'Lecture',    color:'blue',   icon: IC.bookOpen },
+  tutorial:   { label:'Tutorial',   color:'purple', icon: IC.book },
+  lab:        { label:'Lab',        color:'green',  icon: IC.zap },
+  assignment: { label:'Assignment', color:'yellow', icon: IC.task },
+  recording:  { label:'Recording',  color:'slate',  icon: IC.video },
+  pastexam:   { label:'Past Exam',  color:'red',    icon: IC.award },
+  resource:   { label:'Resource',   color:'orange', icon: IC.paperclip },
+}
+const LHTypeBadge = ({ type }) => {
+  const cfg = LH_TYPE_CONFIG[type] || LH_TYPE_CONFIG.resource
+  return <Badge color={cfg.color}><Icon d={cfg.icon} size={10}/>{cfg.label}</Badge>
+}
+
 const LH_COURSES = [
   {
     id: 'csen401', code: 'CSEN 401', name: 'Computer Programming Lab',
@@ -3140,6 +3155,12 @@ function buildCourseData(courseId) {
     instructor: inst, courseId,
   }))
 
+  const labs = weeks.slice(0, 3).map((w, i) => ({
+    id: `lab_${courseId}_${i}`, type: 'lab', title: ['Lab 1: Environment Setup','Lab 2: Hands-on Exercise','Lab 3: Mini Project'][i],
+    week: w, uploadDate: `2026-0${Math.min(i + 2, 9)}-${String(12 + i * 5).padStart(2,'0')}`,
+    instructor: inst, courseId,
+  }))
+
   const now = new Date()
   const assignmentDefs = [
     { title: 'Assignment 1: Foundations', daysOffset: -20, status: 'submitted', grade: 88 + (seed % 8), max: 100 },
@@ -3168,6 +3189,11 @@ function buildCourseData(courseId) {
     { id: `res_${courseId}_5`, title: 'Reference Documentation', type: 'link', subtype: 'link', url: 'https://docs.example.com', uploadDate: '2026-02-15', courseId },
   ]
 
+  const pastExams = [
+    { id: `pe_${courseId}_0`, type: 'pastexam', title: 'Midterm Exam — Fall 2025 (with solutions)', term: 'Fall 2025', uploadDate: '2025-11-20', instructor: inst, courseId },
+    { id: `pe_${courseId}_1`, type: 'pastexam', title: 'Final Exam — Fall 2025',                    term: 'Fall 2025', uploadDate: '2026-01-15', instructor: inst, courseId },
+  ]
+
   const recordings = lectures.slice(0, 5).map((l, i) => ({
     id: `rec_${courseId}_${i}`, type: 'recording', title: l.title + ' (Recording)',
     duration: `${40 + rng(i, 10)}:${String(rng(i + 7, 5)).padStart(2,'0')}`,
@@ -3187,7 +3213,7 @@ function buildCourseData(courseId) {
     { id: `ann_${courseId}_2`, title: 'New Tutorial Uploaded', message: 'Tutorial 4 covering exam preparation topics is now available.', date: '2026-05-22', type: 'success' },
   ]
 
-  return { lectures, tutorials, assignments, resources, recordings, quizGrades, projectGrade, announcements }
+  return { lectures, tutorials, labs, assignments, resources, pastExams, recordings, quizGrades, projectGrade, announcements }
 }
 
 // ── Phase 4–7 Side Widgets ────────────────────────────────────────────────────
@@ -3239,21 +3265,104 @@ function LHRecentMaterials({ recentlyViewed }) {
   )
 }
 
+// Phase 8 — Recent Activity: Recently Downloaded
+function LHRecentlyDownloaded({ recentlyDownloaded }) {
+  const recent = (recentlyDownloaded || []).slice(0, 6)
+  const course = id => LH_COURSES.find(c => c.id === id)
+  if (recent.length === 0) return (
+    <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-6 shadow-sm flex flex-col items-center gap-2 text-center">
+      <div className="flex h-10 w-10 items-center justify-center rounded-full bg-slate-100 dark:bg-slate-700 text-slate-400 dark:text-slate-500"><Icon d={IC.download} size={20}/></div>
+      <p className="text-sm font-medium text-slate-600 dark:text-slate-400">No downloads yet</p>
+      <p className="text-xs text-slate-400 dark:text-slate-500">Downloaded resources and past exams appear here</p>
+    </div>
+  )
+  return (
+    <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-4 shadow-sm">
+      <div className="mb-3 flex items-center gap-2 text-slate-800 dark:text-slate-200">
+        <Icon d={IC.download} size={14}/><h3 className="text-sm font-semibold">Recently Downloaded</h3>
+      </div>
+      <ul className="space-y-2">
+        {recent.map((entry, i) => {
+          const c = course(entry.courseId)
+          const cm = LH_COLOR_MAP[c?.color || 'blue']
+          return (
+            <li key={entry.id + '_d_' + i} className="flex items-center gap-2.5 group">
+              <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-orange-50 dark:bg-orange-950/40 text-orange-600 dark:text-orange-400">
+                <Icon d={LH_TYPE_CONFIG[entry.type]?.icon || IC.paperclip} size={12}/>
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="text-xs font-medium text-slate-700 dark:text-slate-300 truncate group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">{entry.title}</p>
+                <div className="flex items-center gap-1.5 mt-0.5">
+                  {c && <span className={`text-[10px] font-semibold ${cm.text}`}>{c.code}</span>}
+                  <span className="text-[10px] text-slate-400 dark:text-slate-500">{entry.downloadedAt}</span>
+                </div>
+              </div>
+            </li>
+          )
+        })}
+      </ul>
+    </div>
+  )
+}
+
+// Phase 8 — Recent Activity: Recently Added (derived from upload dates, no new storage)
+function LHRecentlyAdded({ allCoursesData }) {
+  const all = []
+  LH_COURSES.forEach(c => {
+    const d = allCoursesData[c.id]
+    if (!d) return
+    ;[...d.lectures, ...d.tutorials, ...d.labs, ...d.resources, ...d.recordings, ...d.pastExams].forEach(item => {
+      all.push({ ...item, courseCode:c.code, courseColor:c.color })
+    })
+  })
+  all.sort((a, b) => new Date(b.uploadDate) - new Date(a.uploadDate))
+  const recent = all.slice(0, 6)
+  if (recent.length === 0) return null
+  return (
+    <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-4 shadow-sm">
+      <div className="mb-3 flex items-center gap-2 text-slate-800 dark:text-slate-200">
+        <Icon d={IC.sparkle} size={14}/><h3 className="text-sm font-semibold">Recently Added</h3>
+      </div>
+      <ul className="space-y-2">
+        {recent.map((item, i) => {
+          const cm = LH_COLOR_MAP[item.courseColor || 'blue']
+          return (
+            <li key={item.id + '_n_' + i} className="flex items-center gap-2.5 group">
+              <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400">
+                <Icon d={LH_TYPE_CONFIG[item.type]?.icon || IC.bookOpen} size={12}/>
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="text-xs font-medium text-slate-700 dark:text-slate-300 truncate group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">{item.title}</p>
+                <div className="flex items-center gap-1.5 mt-0.5">
+                  <span className={`text-[10px] font-semibold ${cm.text}`}>{item.courseCode}</span>
+                  <span className="text-[10px] text-slate-400 dark:text-slate-500">{item.uploadDate}</span>
+                </div>
+              </div>
+            </li>
+          )
+        })}
+      </ul>
+    </div>
+  )
+}
+
 function LHBookmarksPanel({ bookmarks, allCoursesData }) {
   const allItems = []
   LH_COURSES.forEach(c => {
     const d = allCoursesData[c.id]
     if (!d) return
-    ;[...d.lectures, ...d.tutorials, ...d.resources, ...d.recordings].forEach(item => {
+    ;[...d.lectures, ...d.tutorials, ...d.labs, ...d.resources, ...d.recordings, ...d.pastExams].forEach(item => {
       if (bookmarks[item.id]) allItems.push({ ...item, courseCode:c.code, courseColor:c.color })
     })
   })
-  const typeIcon = { lecture:IC.bookOpen, tutorial:IC.book, resource:IC.paperclip, recording:IC.video }
+  const typeIcon = { lecture:IC.bookOpen, tutorial:IC.book, lab:IC.zap, resource:IC.paperclip, recording:IC.video, pastexam:IC.award }
   const typeBg   = {
     lecture:  'bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400',
     tutorial: 'bg-purple-50 dark:bg-purple-950/40 text-purple-600 dark:text-purple-400',
+    lab:      'bg-teal-50 dark:bg-teal-950/40 text-teal-600 dark:text-teal-400',
     resource: 'bg-green-50 dark:bg-green-950/40 text-green-600 dark:text-green-400',
     recording:'bg-slate-800 dark:bg-slate-700 text-white',
+    pastexam: 'bg-red-50 dark:bg-red-950/40 text-red-600 dark:text-red-400',
   }
   if (allItems.length === 0) return (
     <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-6 shadow-sm flex flex-col items-center gap-2 text-center">
@@ -3342,7 +3451,7 @@ function LHCourseProgress({ allCoursesData }) {
         {LH_COURSES.map(c => {
           const cm = LH_COLOR_MAP[c.color || 'blue']
           const d = allCoursesData[c.id]
-          const total = d ? (d.lectures.length + d.tutorials.length + d.assignments.length + d.resources.length + d.recordings.length) : c.totalMaterials
+          const total = d ? (d.lectures.length + d.tutorials.length + d.labs.length + d.assignments.length + d.resources.length + d.pastExams.length + d.recordings.length) : c.totalMaterials
           const done  = Math.round(total * (c.progress / 100))
           return (
             <div key={c.id}>
@@ -3359,6 +3468,11 @@ function LHCourseProgress({ allCoursesData }) {
               <div className="h-1.5 w-full rounded-full bg-slate-100 dark:bg-slate-700 overflow-hidden">
                 <div className={`h-1.5 rounded-full transition-all duration-700 ${cm.bar}`} style={{width:`${c.progress}%`}}/>
               </div>
+              {d && (
+                <p className="mt-1 text-[10px] text-slate-400 dark:text-slate-500 truncate">
+                  {d.lectures.length} Lectures · {d.assignments.length} Assignments · {d.resources.length} Resources
+                </p>
+              )}
             </div>
           )
         })}
@@ -3380,29 +3494,36 @@ function LHGlobalSearch({ allCoursesData, onSelectCourse, onSelectTab }) {
     return () => document.removeEventListener('mousedown', handler)
   }, [])
 
-  const typeIcon = { lecture:IC.bookOpen, tutorial:IC.book, resource:IC.paperclip, recording:IC.video, assignment:IC.task }
-  const typeTab  = { lecture:'lectures', tutorial:'tutorials', resource:'resources', recording:'recordings', assignment:'assignments' }
+  const typeIcon = { lecture:IC.bookOpen, tutorial:IC.book, lab:IC.zap, resource:IC.paperclip, recording:IC.video, assignment:IC.task, pastexam:IC.award }
 
-  const results = q.trim().length < 2 ? [] : (() => {
-    const hits = []
-    LH_COURSES.forEach(c => {
-      const d = allCoursesData[c.id]
-      if (!d) return
-      const push = arr => arr.forEach(item => {
-        if (item.title.toLowerCase().includes(q.toLowerCase()))
-          hits.push({ ...item, courseCode:c.code, courseColor:c.color, courseId:c.id })
-      })
-      push(d.lectures); push(d.tutorials); push(d.resources); push(d.recordings); push(d.assignments)
-    })
-    return hits.slice(0, 8)
-  })()
+const typeTab  = { lecture:'lectures', tutorial:'tutorials', lab:'folders', resource:'resources', recording:'recordings', assignment:'assignments', pastexam:'folders' }
+const results = q.trim().length < 2 ? [] : (() => {
+const hits = []
+const ql = q.toLowerCase()
+LH_COURSES.forEach(c => {
+const d = allCoursesData[c.id]
+if (!d) return
+// Phase 8 — Improved Search: also match folder/material type, week name, and course name/code
 
-  return (
+const courseMatches = c.name.toLowerCase().includes(ql) || c.code.toLowerCase().includes(ql)
+const push = arr => arr.forEach(item => {
+const typeLabel = (LH_TYPE_CONFIG[item.type]?.label || item.type || '').toLowerCase()
+const matches = courseMatches
+|| item.title.toLowerCase().includes(ql)
+|| (item.week || '').toLowerCase().includes(ql)
+|| typeLabel.includes(ql)
+if (matches) hits.push({ ...item, courseCode:c.code, courseColor:c.color, courseId:c.id })
+})
+push(d.lectures); push(d.tutorials); push(d.labs); push(d.resources); push(d.recordings); push(d.assignments); push(d.pastExams)
+})
+return hits.slice(0, 8)
+})()
+return (
     <div ref={ref} className="relative">
       <div className="relative">
         <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500"><Icon d={IC.search} size={14}/></span>
         <input value={q} onChange={e => { setQ(e.target.value); setOpen(true) }} onFocus={() => setOpen(true)}
-          placeholder="Search across all courses…"
+          placeholder="Search by title, week, type, or course…"
           className="w-full rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 py-2.5 pl-9 pr-9 text-sm text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"/>
         {q && (
           <button onClick={() => { setQ(''); setOpen(false) }}
@@ -3429,9 +3550,10 @@ function LHGlobalSearch({ allCoursesData, onSelectCourse, onSelectTab }) {
                       <div className="min-w-0 flex-1">
                         <p className="text-sm font-medium text-slate-700 dark:text-slate-300 truncate">{item.title}</p>
                         <div className="flex items-center gap-2 mt-0.5">
-                          <span className={`text-[10px] font-semibold ${cm.text}`}>{item.courseCode}</span>
-                          <span className="text-xs text-slate-400 dark:text-slate-500 capitalize">{itemType}</span>
-                        </div>
+                      <span className={`text-[10px] font-semibold ${cm.text}`}>{item.courseCode}</span>
+                      <span className="text-xs text-slate-400 dark:text-slate-500">{LH_TYPE_CONFIG[itemType]?.label || itemType}</span>
+                      {item.week && <span className="text-xs text-slate-400 dark:text-slate-500">· {item.week}</span>}
+                    </div>
                       </div>
                     </button>
                   </li>
@@ -3447,9 +3569,27 @@ function LHGlobalSearch({ allCoursesData, onSelectCourse, onSelectTab }) {
 
 // ── Phase 6: LMS Folder View ──────────────────────────────────────────────────
 
-function LHFolderView({ data, bookmarks, onBookmark, submissions, onSubmit, onView }) {
-  const [openFolders, setOpenFolders] = useState({ lectures:true, tutorials:false, assignments:false, resources:false, recordings:false })
+function LHFolderView({ data, bookmarks, onBookmark, submissions, onSubmit, onView, onDownload, stats }) {
+  const [openFolders, setOpenFolders] = useState({ lectures:true, tutorials:false, assignments:false, resources:false, recordings:false, labs:false, pastexams:false })
+  const [groupBy, setGroupBy] = useState('type')
   const toggle = key => setOpenFolders(prev => ({ ...prev, [key]: !prev[key] }))
+
+  // Phase 8 — group lectures + tutorials by week for the "By Week" view
+  const weekFolders = (() => {
+    const byWeek = {}
+    ;[...data.lectures, ...data.tutorials].forEach(item => {
+      const w = item.week || 'Unscheduled'
+      if (!byWeek[w]) byWeek[w] = []
+      byWeek[w].push(item)
+    })
+    return Object.keys(byWeek).sort().map(w => ({
+      key: `week_${w}`, label: w, icon: IC.calendar,
+      color: 'bg-indigo-50 dark:bg-indigo-950/40 border-indigo-200 dark:border-indigo-800 text-indigo-700 dark:text-indigo-300',
+      count: byWeek[w].length, items: byWeek[w],
+    }))
+  })()
+  const expandAll   = () => { const next = {}; [...Object.keys(openFolders), ...weekFolders.map(w=>w.key)].forEach(k => next[k] = true); setOpenFolders(next) }
+  const collapseAll = () => { const next = {}; [...Object.keys(openFolders), ...weekFolders.map(w=>w.key)].forEach(k => next[k] = false); setOpenFolders(next) }
 
   const folders = [
     {
@@ -3463,6 +3603,11 @@ function LHFolderView({ data, bookmarks, onBookmark, submissions, onSubmit, onVi
       count: data.tutorials.length, items: data.tutorials,
     },
     {
+      key: 'labs', label: 'Labs', icon: IC.zap,
+      color: 'bg-teal-50 dark:bg-teal-950/40 border-teal-200 dark:border-teal-800 text-teal-700 dark:text-teal-300',
+      count: data.labs.length, items: data.labs,
+    },
+    {
       key: 'assignments', label: 'Assignments', icon: IC.task,
       color: 'bg-amber-50 dark:bg-amber-950/40 border-amber-200 dark:border-amber-800 text-amber-700 dark:text-amber-300',
       count: data.assignments.length, items: data.assignments,
@@ -3473,18 +3618,35 @@ function LHFolderView({ data, bookmarks, onBookmark, submissions, onSubmit, onVi
       count: data.resources.length, items: data.resources,
     },
     {
+      key: 'pastexams', label: 'Past Exams', icon: IC.award,
+      color: 'bg-red-50 dark:bg-red-950/40 border-red-200 dark:border-red-800 text-red-700 dark:text-red-300',
+      count: data.pastExams.length, items: data.pastExams,
+    },
+    {
       key: 'recordings', label: 'Recordings', icon: IC.video,
       color: 'bg-slate-50 dark:bg-slate-700/40 border-slate-200 dark:border-slate-600 text-slate-700 dark:text-slate-300',
       count: data.recordings.length, items: data.recordings,
     },
   ]
+  const renderFolders = groupBy === 'week' ? [...weekFolders, ...folders] : folders
 
   const statusCfg = { submitted:{color:'green',icon:IC.check}, 'in-progress':{color:'blue',icon:IC.edit}, 'not-started':{color:'slate',icon:IC.clock}, late:{color:'red',icon:IC.alertCircle} }
   const resCfg = { pdf:{icon:IC.filePdf,bg:'text-red-600 dark:text-red-400'}, word:{icon:IC.fileText,bg:'text-blue-600 dark:text-blue-400'}, excel:{icon:IC.fileSpreadsheet,bg:'text-green-600 dark:text-green-400'}, zip:{icon:IC.archive,bg:'text-amber-600 dark:text-amber-400'}, link:{icon:IC.externalLink,bg:'text-purple-600 dark:text-purple-400'} }
 
   return (
     <div className="space-y-2">
-      {folders.map(f => (
+      {/* Phase 8 — folder toolbar: group-by toggle + expand/collapse all */}
+      <div className="flex flex-wrap items-center justify-between gap-2 mb-1">
+        <div className="flex gap-1 rounded-lg bg-slate-100 dark:bg-slate-800 p-1 border border-slate-200 dark:border-slate-700">
+          <button onClick={() => setGroupBy('type')} className={`rounded-md px-3 py-1 text-xs font-medium transition-colors ${groupBy==='type'?'bg-white dark:bg-slate-700 text-blue-700 dark:text-blue-400 shadow-sm':'text-slate-500 dark:text-slate-400'}`}>By Type</button>
+          <button onClick={() => setGroupBy('week')} className={`rounded-md px-3 py-1 text-xs font-medium transition-colors ${groupBy==='week'?'bg-white dark:bg-slate-700 text-blue-700 dark:text-blue-400 shadow-sm':'text-slate-500 dark:text-slate-400'}`}>By Week</button>
+        </div>
+        <div className="flex gap-2">
+          <button onClick={expandAll} className="text-xs font-medium text-blue-600 dark:text-blue-400 hover:underline">Expand All</button>
+          <button onClick={collapseAll} className="text-xs font-medium text-slate-500 dark:text-slate-400 hover:underline">Collapse All</button>
+        </div>
+      </div>
+      {renderFolders.map(f => (
         <div key={f.key} className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 shadow-sm overflow-hidden">
           <button onClick={() => toggle(f.key)}
             className={`w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors`}>
@@ -3502,15 +3664,19 @@ function LHFolderView({ data, bookmarks, onBookmark, submissions, onSubmit, onVi
                 <p className="px-4 py-3 text-sm text-slate-400 dark:text-slate-500">No {f.label.toLowerCase()} yet.</p>
               )}
 
-              {/* Lectures & Tutorials */}
-              {(f.key === 'lectures' || f.key === 'tutorials') && f.items.map(item => (
+              {/* Lectures, Tutorials & Labs (and merged Week folders) */}
+              {(f.key === 'lectures' || f.key === 'tutorials' || f.key === 'labs' || f.key.startsWith('week_')) && f.items.map(item => (
                 <div key={item.id} className="flex items-center gap-3 px-4 py-2.5 hover:bg-slate-50 dark:hover:bg-slate-700/30 group">
-                  <Icon d={f.icon} size={14}/>
+                  <Icon d={LH_TYPE_CONFIG[item.type]?.icon || f.icon} size={14}/>
                   <div className="min-w-0 flex-1">
                     <p className="text-sm font-medium text-slate-700 dark:text-slate-300 truncate group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">{item.title}</p>
-                    <div className="flex items-center gap-2 mt-0.5">
-                      <Badge color="blue">{item.week}</Badge>
-                      <span className="text-xs text-slate-400 dark:text-slate-500">{item.uploadDate}</span>
+                    <div className="flex flex-wrap items-center gap-2 mt-0.5">
+                      <LHTypeBadge type={item.type}/>
+                      {item.week && <Badge color="blue">{item.week}</Badge>}
+                      <span className="text-xs text-slate-400 dark:text-slate-500">{item.uploadDate} · {item.instructor}</span>
+                      {stats && stats[item.id]?.opens > 0 && (
+                        <span className="text-xs text-slate-400 dark:text-slate-500">· Opened {stats[item.id].opens}x</span>
+                      )}
                     </div>
                   </div>
                   <div className="flex items-center gap-1 shrink-0">
@@ -3533,7 +3699,8 @@ function LHFolderView({ data, bookmarks, onBookmark, submissions, onSubmit, onVi
                     <Icon d={sc.icon} size={14}/>
                     <div className="min-w-0 flex-1">
                       <p className="text-sm font-medium text-slate-700 dark:text-slate-300 truncate">{a.title}</p>
-                      <div className="flex items-center gap-2 mt-0.5">
+                      <div className="flex flex-wrap items-center gap-2 mt-0.5">
+                        <LHTypeBadge type="assignment"/>
                         <Badge color={sc.color}>{eff === 'submitted' ? 'Submitted' : eff === 'in-progress' ? 'In Progress' : eff === 'late' ? 'Late' : 'Not Started'}</Badge>
                         <span className={`text-xs ${diff<0?'text-red-500 dark:text-red-400':diff<=3?'text-amber-600 dark:text-amber-400':'text-slate-400 dark:text-slate-500'}`}>
                           Due {a.dueDate}
@@ -3555,7 +3722,8 @@ function LHFolderView({ data, bookmarks, onBookmark, submissions, onSubmit, onVi
                     <span className={rc.bg}><Icon d={rc.icon} size={14}/></span>
                     <div className="min-w-0 flex-1">
                       <p className="text-sm font-medium text-slate-700 dark:text-slate-300 truncate group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">{r.title}</p>
-                      <div className="flex items-center gap-2 mt-0.5">
+                      <div className="flex flex-wrap items-center gap-2 mt-0.5">
+                        <LHTypeBadge type="resource"/>
                         <Badge color={t==='pdf'?'red':t==='link'?'purple':t==='zip'?'yellow':t==='excel'?'green':'blue'}>{t.toUpperCase()}</Badge>
                         {r.size && <span className="text-xs text-slate-400 dark:text-slate-500">{r.size}</span>}
                       </div>
@@ -3566,13 +3734,35 @@ function LHFolderView({ data, bookmarks, onBookmark, submissions, onSubmit, onVi
                         <Icon d={bookmarks[r.id]?IC.bookmarkFilled:IC.bookmark} size={13}/>
                       </button>
                       {t === 'link'
-                        ? <a href={r.url||'#'} target="_blank" rel="noreferrer"><Btn size="sm"><Icon d={IC.externalLink} size={12}/>Open</Btn></a>
-                        : <Btn size="sm" variant="secondary"><Icon d={IC.download} size={12}/>Get</Btn>
+                        ? <a href={r.url||'#'} target="_blank" rel="noreferrer" onClick={() => onView && onView(r)}><Btn size="sm"><Icon d={IC.externalLink} size={12}/>Open</Btn></a>
+                        : <Btn size="sm" variant="secondary" onClick={() => onDownload && onDownload(r)}><Icon d={IC.download} size={12}/>Get</Btn>
                       }
                     </div>
                   </div>
                 )
               })}
+
+              {/* Past Exams — Phase 8 */}
+              {f.key === 'pastexams' && f.items.map(r => (
+                <div key={r.id} className="flex items-center gap-3 px-4 py-2.5 hover:bg-slate-50 dark:hover:bg-slate-700/30 group">
+                  <span className="text-red-600 dark:text-red-400"><Icon d={IC.filePdf} size={14}/></span>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-medium text-slate-700 dark:text-slate-300 truncate group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">{r.title}</p>
+                    <div className="flex flex-wrap items-center gap-2 mt-0.5">
+                      <LHTypeBadge type="pastexam"/>
+                      {r.term && <span className="text-xs text-slate-400 dark:text-slate-500">{r.term}</span>}
+                      <span className="text-xs text-slate-400 dark:text-slate-500">{r.uploadDate}</span>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-1 shrink-0">
+                    <button onClick={() => onBookmark(r.id)}
+                      className={`flex h-7 w-7 items-center justify-center rounded-lg transition-colors ${bookmarks[r.id]?'bg-amber-50 dark:bg-amber-950/40 text-amber-500':'text-slate-400 dark:text-slate-500 hover:text-amber-500'}`}>
+                      <Icon d={bookmarks[r.id]?IC.bookmarkFilled:IC.bookmark} size={13}/>
+                    </button>
+                    <Btn size="sm" variant="secondary" onClick={() => onDownload && onDownload(r)}><Icon d={IC.download} size={12}/>Get</Btn>
+                  </div>
+                </div>
+              ))}
 
               {/* Recordings */}
               {f.key === 'recordings' && f.items.map(r => (
@@ -3582,9 +3772,18 @@ function LHFolderView({ data, bookmarks, onBookmark, submissions, onSubmit, onVi
                   </div>
                   <div className="min-w-0 flex-1">
                     <p className="text-sm font-medium text-slate-700 dark:text-slate-300 truncate group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">{r.title}</p>
-                    <span className="flex items-center gap-1 text-xs text-slate-400 dark:text-slate-500"><Icon d={IC.clock} size={10}/>{r.duration}</span>
+                    <div className="flex flex-wrap items-center gap-2 mt-0.5">
+                      <LHTypeBadge type="recording"/>
+                      <span className="flex items-center gap-1 text-xs text-slate-400 dark:text-slate-500"><Icon d={IC.clock} size={10}/>{r.duration}</span>
+                    </div>
                   </div>
-                  <a href={r.url} target="_blank" rel="noreferrer"><Btn size="sm"><Icon d={IC.playCircle} size={12}/>Watch</Btn></a>
+                  <div className="flex items-center gap-1 shrink-0">
+                    <button onClick={() => onBookmark(r.id)}
+                      className={`flex h-7 w-7 items-center justify-center rounded-lg transition-colors ${bookmarks[r.id]?'bg-amber-50 dark:bg-amber-950/40 text-amber-500':'text-slate-400 dark:text-slate-500 hover:text-amber-500'}`}>
+                      <Icon d={bookmarks[r.id]?IC.bookmarkFilled:IC.bookmark} size={13}/>
+                    </button>
+                    <a href={r.url} target="_blank" rel="noreferrer" onClick={() => onView && onView(r)}><Btn size="sm"><Icon d={IC.playCircle} size={12}/>Watch</Btn></a>
+                  </div>
                 </div>
               ))}
             </div>
@@ -3604,6 +3803,8 @@ function LearningHubSection({ profile }) {
   const [bookmarks, setBookmarks]   = useLS('lh_bookmarks_' + profile.email, {})
   const [submissions, setSubmissions] = useLS('lh_submissions_' + profile.email, {})
   const [recentlyViewed, setRecentlyViewed] = useLS('lh_recent_' + profile.email, [])
+  const [materialStats, setMaterialStats] = useLS('lh_stats_' + profile.email, {})
+  const [recentlyDownloaded, setRecentlyDownloaded] = useLS('lh_downloaded_' + profile.email, [])
 
   const allCoursesData = {}
   LH_COURSES.forEach(c => { allCoursesData[c.id] = buildCourseData(c.id) })
@@ -3621,6 +3822,24 @@ function LearningHubSection({ profile }) {
     setRecentlyViewed(prev => {
       const filtered = (prev||[]).filter(e => e.id !== item.id)
       return [{ ...item, viewedAt:timeStr, courseId:item.courseId||selectedCourseId }, ...filtered].slice(0, 20)
+    })
+    // Phase 8 — Download Tracking: bump "times opened" + "last opened"
+    setMaterialStats(prev => {
+      const existing = prev[item.id] || { opens:0, downloads:0 }
+      return { ...prev, [item.id]: { ...existing, opens: existing.opens + 1, lastOpened: now.toISOString() } }
+    })
+  }
+
+  const trackDownload = item => {
+    const now = new Date()
+    const timeStr = `${now.toLocaleDateString(undefined,{month:'short',day:'numeric'})} ${now.toLocaleTimeString(undefined,{hour:'2-digit',minute:'2-digit'})}`
+    setMaterialStats(prev => {
+      const existing = prev[item.id] || { opens:0, downloads:0 }
+      return { ...prev, [item.id]: { ...existing, downloads: existing.downloads + 1, lastOpened: now.toISOString() } }
+    })
+    setRecentlyDownloaded(prev => {
+      const filtered = (prev||[]).filter(e => e.id !== item.id)
+      return [{ ...item, downloadedAt:timeStr, courseId:item.courseId||selectedCourseId }, ...filtered].slice(0, 20)
     })
   }
 
@@ -3640,6 +3859,8 @@ function LearningHubSection({ profile }) {
     { id:'deadlines', label:'Deadlines', icon:IC.alertCircle },
     { id:'bookmarks', label:'Saved',     icon:IC.bookmark },
     { id:'recent',    label:'Recent',    icon:IC.history },
+    { id:'downloaded',label:'Downloaded',icon:IC.download },
+    { id:'new',       label:'New',       icon:IC.sparkle },
   ]
 
   const bmCount = Object.values(bookmarks).filter(Boolean).length
@@ -3706,10 +3927,26 @@ function LearningHubSection({ profile }) {
         </aside>
 
         {/* ── Center: Course Workspace ── */}
-        <div className="flex-1 min-w-0 space-y-4">
+    <div className="flex-1 min-w-0 space-y-4">
 
-          {/* Course header */}
-          <div className={`rounded-xl border ${cc.border} ${cc.bg} p-5`}>
+      {/* Breadcrumb + quick course jump — Phase 8 */}
+      <div className="flex items-center justify-between gap-2 text-xs text-slate-400 dark:text-slate-500">
+        <div className="flex items-center gap-1.5 min-w-0 truncate">
+          <span>Learning Hub</span><span>/</span>
+          <span className="font-medium text-slate-600 dark:text-slate-300">{course.code}</span><span>/</span>
+          <span className="font-medium text-slate-600 dark:text-slate-300">{TABS.find(t => t.id === activeTab)?.label || 'Overview'}</span>
+        </div>
+        <div className="flex items-center gap-1 shrink-0">
+          <button title="Previous course" onClick={() => { const i = LH_COURSES.findIndex(c => c.id === selectedCourseId); setSelectedCourseId(LH_COURSES[(i - 1 + LH_COURSES.length) % LH_COURSES.length].id) }}
+            className="flex h-6 w-6 items-center justify-center rounded-md hover:bg-slate-100 dark:hover:bg-slate-700 hover:text-slate-700 dark:hover:text-slate-200"><span className="rotate-180"><Icon d={IC.chevronsRight} size={11}/></span></button>
+          <button title="Next course" onClick={() => { const i = LH_COURSES.findIndex(c => c.id === selectedCourseId); setSelectedCourseId(LH_COURSES[(i + 1) % LH_COURSES.length].id) }}
+            className="flex h-6 w-6 items-center justify-center rounded-md hover:bg-slate-100 dark:hover:bg-slate-700 hover:text-slate-700 dark:hover:text-slate-200"><Icon d={IC.chevronsRight} size={11}/></button>
+        </div>
+      </div>
+
+      {/* Course header */}
+      <div className={`rounded-xl border ${cc.border} ${cc.bg} p-5`}>
+
             <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
               <div className="space-y-1.5 min-w-0">
                 <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${cc.icon}`}>{course.code}</span>
@@ -3740,13 +3977,13 @@ function LearningHubSection({ profile }) {
 
           {/* Tab content */}
           {activeTab === 'overview'    && <LHOverviewTab course={course} data={data} cc={cc}/>}
-          {activeTab === 'lectures'    && <LHMaterialsTab items={data.lectures}  kind="Lecture"  bookmarks={bookmarks} onBookmark={toggleBookmark} onView={trackView}/>}
-          {activeTab === 'tutorials'   && <LHMaterialsTab items={data.tutorials} kind="Tutorial" bookmarks={bookmarks} onBookmark={toggleBookmark} onView={trackView}/>}
+          {activeTab === 'lectures'    && <LHMaterialsTab items={data.lectures}  kind="Lecture"  bookmarks={bookmarks} onBookmark={toggleBookmark} onView={trackView} onDownload={trackDownload}/>}
+          {activeTab === 'tutorials'   && <LHMaterialsTab items={data.tutorials} kind="Tutorial" bookmarks={bookmarks} onBookmark={toggleBookmark} onView={trackView} onDownload={trackDownload}/>}
           {activeTab === 'assignments' && <LHAssignmentsTab assignments={data.assignments} submissions={submissions} onSubmit={submitAssignment}/>}
-          {activeTab === 'resources'   && <LHResourcesTab resources={data.resources} bookmarks={bookmarks} onBookmark={toggleBookmark}/>}
-          {activeTab === 'recordings'  && <LHRecordingsTab recordings={data.recordings}/>}
+          {activeTab === 'resources'   && <LHResourcesTab resources={data.resources} bookmarks={bookmarks} onBookmark={toggleBookmark} onDownload={trackDownload} onView={trackView}/>}
+          {activeTab === 'recordings'  && <LHRecordingsTab recordings={data.recordings} bookmarks={bookmarks} onBookmark={toggleBookmark} onView={trackView}/>}
           {activeTab === 'grades'      && <LHGradesTab assignments={data.assignments} quizzes={data.quizGrades} project={data.projectGrade} submissions={submissions} course={course} cc={cc}/>}
-          {activeTab === 'folders'     && <LHFolderView data={data} bookmarks={bookmarks} onBookmark={toggleBookmark} submissions={submissions} onSubmit={submitAssignment} onView={trackView}/>}
+          {activeTab === 'folders'     && <LHFolderView data={data} bookmarks={bookmarks} onBookmark={toggleBookmark} submissions={submissions} onSubmit={submitAssignment} onView={trackView} onDownload={trackDownload} stats={materialStats}/>}
         </div>
 
         {/* ── Right: Side Widgets ── Phase 4 */}
@@ -3764,6 +4001,8 @@ function LearningHubSection({ profile }) {
           {sidePanel === 'deadlines' && <LHAllDeadlines allCoursesData={allCoursesData} submissions={submissions}/>}
           {sidePanel === 'bookmarks' && <LHBookmarksPanel bookmarks={bookmarks} allCoursesData={allCoursesData}/>}
           {sidePanel === 'recent'    && <LHRecentMaterials recentlyViewed={recentlyViewed}/>}
+          {sidePanel === 'downloaded'&& <LHRecentlyDownloaded recentlyDownloaded={recentlyDownloaded}/>}
+          {sidePanel === 'new'       && <LHRecentlyAdded allCoursesData={allCoursesData}/>}
         </aside>
       </div>
     </div>
@@ -3789,6 +4028,7 @@ function LHOverviewTab({ course, data, cc }) {
     success: { bg: 'bg-green-50 dark:bg-green-950/40 border-green-200 dark:border-green-800', text: 'text-green-700 dark:text-green-300', icon: IC.check },
   }
   const statCards = [
+    { label: 'Total Materials', value: lectures.length + tutorials.length + (data.labs?.length||0) + assignments.length + resources.length + (data.recordings?.length||0) + (data.pastExams?.length||0), icon: IC.layers, color: 'text-indigo-700 dark:text-indigo-400', bg: 'bg-indigo-50 dark:bg-indigo-950/40' },
     { label: 'Lectures',    value: lectures.length,   icon: IC.bookOpen,  color: 'text-blue-700 dark:text-blue-400',   bg: 'bg-blue-50 dark:bg-blue-950/40' },
     { label: 'Tutorials',   value: tutorials.length,  icon: IC.book,      color: 'text-purple-700 dark:text-purple-400', bg: 'bg-purple-50 dark:bg-purple-950/40' },
     { label: 'Assignments', value: assignments.length,icon: IC.task,      color: 'text-amber-700 dark:text-amber-400', bg: 'bg-amber-50 dark:bg-amber-950/40' },
@@ -3797,7 +4037,7 @@ function LHOverviewTab({ course, data, cc }) {
   return (
     <div className="space-y-5">
       {/* Stat mini cards */}
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
         {statCards.map(s => (
           <div key={s.label} className={`rounded-xl p-4 ${s.bg} transition-all duration-150 hover:-translate-y-0.5 hover:shadow-sm`}>
             <div className="flex items-center justify-between mb-1"><Icon d={s.icon} size={14} /></div>
@@ -3883,12 +4123,29 @@ function LHOverviewTab({ course, data, cc }) {
 
 // ── Materials Tab (Lectures & Tutorials) ─────────────────────────────────────
 
-function LHMaterialsTab({ items, kind, bookmarks, onBookmark, onView }) {
+function LHMaterialsTab({ items, kind, bookmarks, onBookmark, onView, onDownload }) {
   const [search, setSearch] = useState('')
-  const filtered = items.filter(i => i.title.toLowerCase().includes(search.toLowerCase()) || (i.week||'').toLowerCase().includes(search.toLowerCase()))
+  const [sortBy, setSortBy] = useState('newest')
+  const itemType = kind.toLowerCase()
+  const filtered = items
+    .filter(i => i.title.toLowerCase().includes(search.toLowerCase()) || (i.week||'').toLowerCase().includes(search.toLowerCase()))
+    .slice()
+    .sort((a, b) => {
+      if (sortBy === 'az') return a.title.localeCompare(b.title)
+      if (sortBy === 'oldest') return new Date(a.uploadDate) - new Date(b.uploadDate)
+      return new Date(b.uploadDate) - new Date(a.uploadDate)
+    })
   return (
     <div className="space-y-4">
-      <SearchBar value={search} onChange={setSearch} placeholder={`Search ${kind.toLowerCase()}s…`} />
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+        <div className="flex-1"><SearchBar value={search} onChange={setSearch} placeholder={`Search ${kind.toLowerCase()}s…`} /></div>
+        <select value={sortBy} onChange={e => setSortBy(e.target.value)}
+          className="rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-200 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none">
+          <option value="newest">Newest first</option>
+          <option value="oldest">Oldest first</option>
+          <option value="az">A–Z</option>
+        </select>
+      </div>
       {filtered.length === 0
         ? (
           <Card>
@@ -3915,6 +4172,7 @@ function LHMaterialsTab({ items, kind, bookmarks, onBookmark, onView }) {
                     <div className="min-w-0">
                       <p className="font-semibold text-slate-800 dark:text-slate-200 group-hover:text-blue-700 dark:group-hover:text-blue-400 transition-colors">{item.title}</p>
                       <div className="flex flex-wrap items-center gap-2 mt-1">
+                        <LHTypeBadge type={itemType}/>
                         <Badge color="blue">{item.week}</Badge>
                         <span className="text-xs text-slate-400 dark:text-slate-500">{item.uploadDate}</span>
                         <span className="text-xs text-slate-400 dark:text-slate-500">· {item.instructor}</span>
@@ -3926,7 +4184,7 @@ function LHMaterialsTab({ items, kind, bookmarks, onBookmark, onView }) {
                       className={`flex h-8 w-8 items-center justify-center rounded-lg transition-colors ${bookmarks[item.id] ? 'bg-amber-50 dark:bg-amber-950/40 text-amber-500' : 'text-slate-400 dark:text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-700 hover:text-amber-500'}`}>
                       <Icon d={bookmarks[item.id] ? IC.bookmarkFilled : IC.bookmark} size={14} />
                     </button>
-                    <Btn size="sm" variant="secondary"><Icon d={IC.download} size={13} />Download</Btn>
+                    <Btn size="sm" variant="secondary" onClick={() => onDownload && onDownload(item)}><Icon d={IC.download} size={13} />Download</Btn>
                     <Btn size="sm" onClick={() => onView && onView(item)}><Icon d={IC.eye} size={13} />View</Btn>
                   </div>
                 </div>
@@ -4007,7 +4265,7 @@ function LHAssignmentsTab({ assignments, submissions, onSubmit }) {
 
 // ── Resources Tab ─────────────────────────────────────────────────────────────
 
-function LHResourcesTab({ resources, bookmarks, onBookmark }) {
+function LHResourcesTab({ resources, bookmarks, onBookmark, onDownload, onView }) {
   const typeConfig = {
     pdf:   { icon: IC.filePdf,         label: 'PDF',   bg: 'bg-red-50 dark:bg-red-950/40 text-red-600 dark:text-red-400' },
     word:  { icon: IC.fileText,        label: 'Word',  bg: 'bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400' },
@@ -4032,7 +4290,8 @@ function LHResourcesTab({ resources, bookmarks, onBookmark }) {
                   </div>
                   <div className="min-w-0">
                     <p className="font-semibold text-slate-800 dark:text-slate-200 truncate group-hover:text-blue-700 dark:group-hover:text-blue-400 transition-colors">{r.title}</p>
-                    <div className="flex items-center gap-2 mt-0.5">
+                    <div className="flex flex-wrap items-center gap-2 mt-0.5">
+                      <LHTypeBadge type="resource"/>
                       <Badge color={t === 'pdf' ? 'red' : t === 'link' ? 'purple' : t === 'zip' ? 'yellow' : t === 'excel' ? 'green' : 'blue'}>{tc.label}</Badge>
                       {r.size && <span className="text-xs text-slate-400 dark:text-slate-500">{r.size}</span>}
                       <span className="text-xs text-slate-400 dark:text-slate-500">{r.uploadDate}</span>
@@ -4045,8 +4304,8 @@ function LHResourcesTab({ resources, bookmarks, onBookmark }) {
                     <Icon d={bookmarks[r.id] ? IC.bookmarkFilled : IC.bookmark} size={14} />
                   </button>
                   {t === 'link'
-                    ? <a href={r.url || '#'} target="_blank" rel="noreferrer"><Btn size="sm"><Icon d={IC.externalLink} size={13} />Open</Btn></a>
-                    : <><Btn size="sm" variant="secondary"><Icon d={IC.eye} size={13} />View</Btn><Btn size="sm"><Icon d={IC.download} size={13} />Download</Btn></>
+                    ? <a href={r.url || '#'} target="_blank" rel="noreferrer" onClick={() => onView && onView(r)}><Btn size="sm"><Icon d={IC.externalLink} size={13} />Open</Btn></a>
+                    : <><Btn size="sm" variant="secondary" onClick={() => onView && onView(r)}><Icon d={IC.eye} size={13} />View</Btn><Btn size="sm" onClick={() => onDownload && onDownload(r)}><Icon d={IC.download} size={13} />Download</Btn></>
                   }
                 </div>
               </div>
