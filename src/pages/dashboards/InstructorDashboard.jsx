@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useMemo, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { getCurrentUser, logoutUser } from '../../data/authStorage'
 import { seedAcademicPlatformDemoData } from '../../data/academicPlatformSeed'
@@ -1892,21 +1892,25 @@ function StudentPortfoliosSection() {
   const [filterSkill, setFilterSkill] = useState('')
   const [selected, setSelected] = useState(null)
 
-  const allUsers = LS.get('guc_projecthub_users', []).filter(u => u.role === 'student')
-  const allProjects = LS.get('student_projects', [])
-  const profiles = allUsers.map(u => ({ ...u, ...LS.get('student_profile_' + u.email, {}) }))
-  const withProjects = profiles.map(p => ({
-    ...p,
-    publicProjects: allProjects.filter(pr => pr.owner === p.email && pr.visibility === 'public'),
-    projectCount: allProjects.filter(pr => pr.owner === p.email && pr.visibility === 'public').length,
-  }))
-  const majors = [...new Set(profiles.map(p => p.major).filter(Boolean))]
-  const allSkills = [...new Set(profiles.flatMap(p => p.skills || []))]
-  const displayed = withProjects
+  // Phase 9 — memoize heavy localStorage reads so they don't re-run on every search keystroke
+  const withProjects = useMemo(() => {
+    const allUsers = LS.get('guc_projecthub_users', []).filter(u => u.role === 'student')
+    const allProjects = LS.get('student_projects', [])
+    const profiles = allUsers.map(u => ({ ...u, ...LS.get('student_profile_' + u.email, {}) }))
+    return profiles.map(p => ({
+      ...p,
+      publicProjects: allProjects.filter(pr => pr.owner === p.email && pr.visibility === 'public'),
+      projectCount: allProjects.filter(pr => pr.owner === p.email && pr.visibility === 'public').length,
+    }))
+  }, [])
+  const majors = useMemo(() => [...new Set(withProjects.map(p => p.major).filter(Boolean))], [withProjects])
+  const allSkills = useMemo(() => [...new Set(withProjects.flatMap(p => p.skills || []))], [withProjects])
+  const displayed = useMemo(() => withProjects
     .filter(p => { const name = `${p.firstName || ''} ${p.lastName || ''}`.toLowerCase(); return name.includes(search.toLowerCase()) || p.email.toLowerCase().includes(search.toLowerCase()) })
     .filter(p => !filterMajor || p.major === filterMajor)
     .filter(p => !filterSkill || (p.skills || []).includes(filterSkill))
-    .sort((a, b) => b.projectCount - a.projectCount)
+    .sort((a, b) => b.projectCount - a.projectCount),
+  [withProjects, search, filterMajor, filterSkill])
 
   return (
     <div className="space-y-6">

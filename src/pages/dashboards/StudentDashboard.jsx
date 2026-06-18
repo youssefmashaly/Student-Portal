@@ -1,5 +1,5 @@
 import { useTheme } from '../../context/ThemeContext'
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useMemo, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { getCurrentUser, logoutUser } from '../../data/authStorage'
 import { seedAcademicPlatformDemoData } from '../../data/academicPlatformSeed'
@@ -231,30 +231,7 @@ function ProfileCompletionCard({ user, projects, setTab }) {
   )
 }
 
-function QuickActionsPanel({ setTab }) {
-  const actions = [
-    { label: 'Upload Project',     icon: IC.upload,   tab: 'create-project', color: 'bg-blue-50 dark:bg-blue-950/40 hover:bg-blue-100 dark:hover:bg-blue-900/50 text-blue-700 dark:text-blue-300 border-blue-100 dark:border-blue-900' },
-    { label: 'Find Instructors',   icon: IC.book,     tab: 'instructors',    color: 'bg-purple-50 dark:bg-purple-950/40 hover:bg-purple-100 dark:hover:bg-purple-900/50 text-purple-700 dark:text-purple-300 border-purple-100 dark:border-purple-900' },
-    { label: 'Message',            icon: IC.message,  tab: 'messages',       color: 'bg-green-50 dark:bg-green-950/40 hover:bg-green-100 dark:hover:bg-green-900/50 text-green-700 dark:text-green-300 border-green-100 dark:border-green-900' },
-    { label: 'Explore Projects',   icon: IC.eye,      tab: 'explore',        color: 'bg-amber-50 dark:bg-amber-950/40 hover:bg-amber-100 dark:hover:bg-amber-900/50 text-amber-700 dark:text-amber-300 border-amber-100 dark:border-amber-900' },
-    { label: 'View Portfolio',     icon: IC.user,     tab: 'profile',        color: 'bg-rose-50 dark:bg-rose-950/40 hover:bg-rose-100 dark:hover:bg-rose-900/50 text-rose-700 dark:text-rose-300 border-rose-100 dark:border-rose-900' },
-    { label: 'Join Team',          icon: IC.teamwork, tab: 'invitations',    color: 'bg-slate-50 dark:bg-slate-700/40 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-600' },
-  ]
-  return (
-    <Card>
-      <h3 className="mb-3 font-semibold text-slate-800 dark:text-slate-200">Quick Actions</h3>
-      <div className="grid grid-cols-3 gap-2">
-        {actions.map(a => (
-          <button key={a.label} onClick={() => setTab(a.tab)}
-            className={`flex flex-col items-center gap-1.5 rounded-xl border p-3 text-center transition-all duration-150 hover:-translate-y-0.5 hover:shadow-sm active:scale-95 ${a.color}`}>
-            <Icon d={a.icon} size={18} />
-            <span className="text-[11px] font-semibold leading-tight">{a.label}</span>
-          </button>
-        ))}
-      </div>
-    </Card>
-  )
-}
+// QuickActionsPanel removed — superseded by LHQuickActionsPanel (Phase 9 cleanup)
 
 function UpcomingDeadlinesWidget({ user, projects, setTab }) {
   const now = new Date()
@@ -559,10 +536,13 @@ function ActivityHeatmap({ user, projects }) {
 function PortfolioAnalyticsCard({ user, projects }) {
   const myProjects = projects.filter(p => p.owner === user.email)
   const pub = myProjects.filter(p => p.visibility === 'public')
-  const totalViews = LS.get('student_portfolio_views_' + user.email, pub.length * 12 + Math.floor(Math.random() * 40))
-  const projectViews = pub.reduce((sum, p) => sum + (p.views || Math.floor(Math.random() * 30) + 5), 0)
+  // Seed stable random fallbacks once (prevents flicker on re-render)
+  const [stableViews] = useState(() => pub.length * 12 + Math.floor(Math.random() * 40))
+  const [stableDelta] = useState(() => pub.length > 0 ? Math.floor(Math.random() * 15) + 2 : 0)
+  const totalViews = LS.get('student_portfolio_views_' + user.email, stableViews)
+  const projectViews = pub.reduce((sum, p) => sum + (p.views || 5), 0)
   const favCount = LS.get('student_fav_portfolios_count_' + user.email, Math.floor(pub.length * 1.5))
-  const weekDelta = pub.length > 0 ? Math.floor(Math.random() * 15) + 2 : 0
+  const weekDelta = stableDelta
   const trending = weekDelta > 0
 
   const stats = [
@@ -617,6 +597,15 @@ function DashboardSearch({ user, projects, setTab }) {
   const [q, setQ] = useState('')
   const [open, setOpen] = useState(false)
   const ref = useRef(null)
+  // Phase 9 — cache internship list once per mount; avoids O(n) localStorage scan every keystroke
+  const cachedInternships = useMemo(() => {
+    const all = []
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i)
+      if (k?.startsWith('employer_internships_')) LS.get(k,[]).forEach(x => all.push(x))
+    }
+    return all
+  }, [])
 
   useEffect(() => {
     const h = e => { if (ref.current && !ref.current.contains(e.target)) setOpen(false) }
@@ -632,17 +621,8 @@ function DashboardSearch({ user, projects, setTab }) {
     projects.filter(p => p.title.toLowerCase().includes(lq) || (p.description||'').toLowerCase().includes(lq))
       .slice(0,3).forEach(p => hits.push({ type:'project', label:p.title, sub:p.course, tab:'projects', icon:IC.folder, color:'text-blue-600 dark:text-blue-400', bg:'bg-blue-50 dark:bg-blue-950/40' }))
 
-    // Internships
-    ;((() => {
-      const all = []
-      for (let i = 0; i < localStorage.length; i++) {
-        const k = localStorage.key(i)
-        if (k?.startsWith('employer_internships_')) {
-          LS.get(k,[]).forEach(x => all.push(x))
-        }
-      }
-      return all
-    })()).filter(i => i.title?.toLowerCase().includes(lq) || (i.companyName||'').toLowerCase().includes(lq))
+    // Internships (uses mount-cached list — no re-scan per keystroke)
+    cachedInternships.filter(i => i.title?.toLowerCase().includes(lq) || (i.companyName||'').toLowerCase().includes(lq))
       .slice(0,2).forEach(i => hits.push({ type:'internship', label:i.title, sub:i.companyName||'Company', tab:'internships', icon:IC.briefcase, color:'text-green-600 dark:text-green-400', bg:'bg-green-50 dark:bg-green-950/40' }))
 
     // LH materials
@@ -756,9 +736,12 @@ function ContinueLearningCard({ user, setTab }) {
 // ── Academic Progress Snapshot ────────────────────────────────────────────────
 
 function AcademicProgressSnapshot({ user, setTab }) {
-  const allData = {}
-  LH_COURSES.forEach(c => { allData[c.id] = buildCourseData(c.id) })
-  const submissions = LS.get('lh_submissions_' + user.email, {})
+  const allData = useMemo(() => {
+    const out = {}
+    LH_COURSES.forEach(c => { out[c.id] = buildCourseData(c.id) })
+    return out
+  }, [])
+  const submissions = useMemo(() => LS.get('lh_submissions_' + user.email, {}), [user.email])
 
   let totalSubmitted = 0, totalPending = 0
   LH_COURSES.forEach(c => {
@@ -909,13 +892,15 @@ function TodaysAgendaCard({ user, setTab }) {
 // ── Announcements Widget ──────────────────────────────────────────────────────
 
 function AnnouncementsWidget({ setTab }) {
-  const allAnnouncements = []
-  LH_COURSES.forEach(c => {
-    const d = buildCourseData(c.id)
-    d.announcements.forEach(a => {
-      allAnnouncements.push({ ...a, courseCode:c.code, courseColor:c.color })
+  const allAnnouncements = useMemo(() => {
+    const out = []
+    LH_COURSES.forEach(c => {
+      buildCourseData(c.id).announcements.forEach(a => {
+        out.push({ ...a, courseCode:c.code, courseColor:c.color })
+      })
     })
-  })
+    return out
+  }, [])
   // Merge real instructor announcements from bridge key
   const instructorAnnouncements = LS.get('guc_instructor_announcements', [])
   instructorAnnouncements.forEach(a => {
@@ -988,13 +973,15 @@ function PersonalInsightsCard({ user, projects }) {
   const submittedThisWeek = Object.keys(submissions).filter(k => submissions[k] === 'submitted').length
 
   // Overall completion rate
-  let totalAssignments = 0, submittedTotal = 0
-  LH_COURSES.forEach(c => {
-    const d = buildCourseData(c.id)
-    totalAssignments += d.assignments.length
-    d.assignments.forEach(a => { if (submissions[a.id] === 'submitted' || a.status === 'submitted') submittedTotal++ })
-  })
-  const completionRate = totalAssignments > 0 ? Math.round((submittedTotal / totalAssignments) * 100) : 0
+  const { completionRate } = useMemo(() => {
+    let totalAssignments = 0, submittedTotal = 0
+    LH_COURSES.forEach(c => {
+      const d = buildCourseData(c.id)
+      totalAssignments += d.assignments.length
+      d.assignments.forEach(a => { if (submissions[a.id] === 'submitted' || a.status === 'submitted') submittedTotal++ })
+    })
+    return { completionRate: totalAssignments > 0 ? Math.round((submittedTotal / totalAssignments) * 100) : 0 }
+  }, [submissions])
 
   // Learning streak (days with recent views)
   const viewDays = new Set(recent.map(r => r.viewedAt?.split(' ')[0]).filter(Boolean))
@@ -2480,7 +2467,8 @@ function InternshipsSection({ profile, pushNotif }) {
   const [selected, setSelected]=useState(null)
   const [coverLetter, setCoverLetter]=useState('')
   const [sortIntern, setSortIntern]=useState('newest')
-  const getInternships = () => {
+  // Phase 9 — memoize localStorage scan (runs on every render otherwise)
+  const getInternships = useCallback(() => {
     const all = []
     const seen = new Set()
     const push = (item) => {
@@ -2562,11 +2550,11 @@ function InternshipsSection({ profile, pushNotif }) {
       ]
     }
     return all.filter((i) => !i.archived)
-  }
-  const internships=getInternships()
-  const companies=[...new Set(internships.map(i=>i.companyName||i.companyEmail))]
-  const durations=[...new Set(internships.map(i=>i.duration))]
-  const displayed=internships.filter(i=>{const comp=(i.companyName||i.companyEmail||'').toLowerCase();return i.title.toLowerCase().includes(search.toLowerCase())||comp.includes(search.toLowerCase())}).filter(i=>!filterComp||(i.companyName||i.companyEmail)===filterComp).filter(i=>!filterDur||i.duration===filterDur).sort((a,b)=>sortIntern==='oldest'?new Date(a.postedAt)-new Date(b.postedAt):new Date(b.postedAt)-new Date(a.postedAt))
+  }, [applications]) // eslint-disable-line
+  const internships=useMemo(()=>getInternships(),[getInternships])
+  const companies=useMemo(()=>[...new Set(internships.map(i=>i.companyName||i.companyEmail))],[internships])
+  const durations=useMemo(()=>[...new Set(internships.map(i=>i.duration))],[internships])
+  const displayed=useMemo(()=>internships.filter(i=>{const comp=(i.companyName||i.companyEmail||'').toLowerCase();return i.title.toLowerCase().includes(search.toLowerCase())||comp.includes(search.toLowerCase())}).filter(i=>!filterComp||(i.companyName||i.companyEmail)===filterComp).filter(i=>!filterDur||i.duration===filterDur).sort((a,b)=>sortIntern==='oldest'?new Date(a.postedAt)-new Date(b.postedAt):new Date(b.postedAt)-new Date(a.postedAt)),[internships,search,filterComp,filterDur,sortIntern])
   const getApp=id=>applications.find(a=>a.internshipId===id)
   const apply=()=>{
     if(!coverLetter.trim())return alert('Please write a cover letter.')
@@ -3806,15 +3794,21 @@ function LearningHubSection({ profile }) {
   const [materialStats, setMaterialStats] = useLS('lh_stats_' + profile.email, {})
   const [recentlyDownloaded, setRecentlyDownloaded] = useLS('lh_downloaded_' + profile.email, [])
 
-  const allCoursesData = {}
-  LH_COURSES.forEach(c => { allCoursesData[c.id] = buildCourseData(c.id) })
+  const allCoursesData = useMemo(() => {
+    const out = {}
+    LH_COURSES.forEach(c => { out[c.id] = buildCourseData(c.id) })
+    return out
+  }, [])
 
-  const course = LH_COURSES.find(c => c.id === selectedCourseId) || LH_COURSES[0]
+  const course = useMemo(
+    () => LH_COURSES.find(c => c.id === selectedCourseId) || LH_COURSES[0],
+    [selectedCourseId]
+  )
   const data   = allCoursesData[selectedCourseId]
   const cc     = LH_COLOR_MAP[course.color] || LH_COLOR_MAP.blue
 
-  const toggleBookmark   = itemId => setBookmarks(prev => ({ ...prev, [itemId]: !prev[itemId] }))
-  const submitAssignment = aId    => setSubmissions(prev => ({ ...prev, [aId]: 'submitted' }))
+  const toggleBookmark   = useCallback(itemId => setBookmarks(prev => ({ ...prev, [itemId]: !prev[itemId] })), [])
+  const submitAssignment = useCallback(aId    => setSubmissions(prev => ({ ...prev, [aId]: 'submitted' })), [])
 
   const trackView = item => {
     const now = new Date()
@@ -4319,7 +4313,7 @@ function LHResourcesTab({ resources, bookmarks, onBookmark, onDownload, onView }
 
 // ── Recordings Tab ────────────────────────────────────────────────────────────
 
-function LHRecordingsTab({ recordings, bookmarks, onBookmark }) {
+function LHRecordingsTab({ recordings, bookmarks, onBookmark, onView }) {
   return (
     <div className="space-y-3">
       {recordings.length === 0
@@ -4333,7 +4327,8 @@ function LHRecordingsTab({ recordings, bookmarks, onBookmark }) {
                 </div>
                 <div className="min-w-0">
                   <p className="font-semibold text-slate-800 dark:text-slate-200 truncate group-hover:text-blue-700 dark:group-hover:text-blue-400 transition-colors">{r.title}</p>
-                  <div className="flex items-center gap-3 mt-0.5">
+                  <div className="flex flex-wrap items-center gap-2 mt-0.5">
+                    <LHTypeBadge type="recording"/>
                     <span className="flex items-center gap-1 text-xs text-slate-400 dark:text-slate-500">
                       <Icon d={IC.clock} size={11} />{r.duration}
                     </span>
@@ -4348,7 +4343,7 @@ function LHRecordingsTab({ recordings, bookmarks, onBookmark }) {
                     <Icon d={bookmarks&&bookmarks[r.id]?IC.bookmarkFilled:IC.bookmark} size={14}/>
                   </button>
                 )}
-                <a href={r.url} target="_blank" rel="noreferrer">
+                <a href={r.url} target="_blank" rel="noreferrer" onClick={() => onView && onView(r)}>
                   <Btn size="sm"><Icon d={IC.playCircle} size={13} />Watch</Btn>
                 </a>
                 <a href={r.url} target="_blank" rel="noreferrer">
@@ -4373,7 +4368,9 @@ function LHGradesTab({ assignments, quizzes, project, submissions, course, cc })
     { ...project, category: 'project', pct: Math.round((project.grade / project.max) * 100) },
   ]
   const courseAvg = allGradedItems.length > 0 ? Math.round(allGradedItems.reduce((s, i) => s + i.pct, 0) / allGradedItems.length) : 0
-  const studentAvg = courseAvg - 3 + Math.floor(Math.random() * 6)
+  // Stable class average offset seeded once — prevents flicker on re-render
+  const [avgOffset] = useState(() => Math.floor(Math.random() * 6) - 3)
+  const studentAvg = courseAvg + avgOffset
 
   const gradeColor = (pct) => pct >= 85 ? 'text-green-700 dark:text-green-400' : pct >= 70 ? 'text-blue-700 dark:text-blue-400' : pct >= 50 ? 'text-amber-700 dark:text-amber-400' : 'text-red-700 dark:text-red-400'
   const gradeBg    = (pct) => pct >= 85 ? 'bg-green-50 dark:bg-green-950/40' : pct >= 70 ? 'bg-blue-50 dark:bg-blue-950/40' : pct >= 50 ? 'bg-amber-50 dark:bg-amber-950/40' : 'bg-red-50 dark:bg-red-950/40'
@@ -4677,10 +4674,10 @@ export default function StudentDashboard() {
   const setFavPortfolios=fn=>setFavPortfoliosLS(typeof fn==='function'?fn(favPortfolios):fn)
   const [messagesSyncTick, setMessagesSyncTick]=useState(0)
   const notifsEnabled=LS.get('student_notifs_on_'+rawUser.email,true)
-const pushNotif=msg=>{if(!notifsEnabled)return;setNotificationsLS(p=>[...p,{id:Date.now().toString(),message:msg,read:false,createdAt:new Date().toISOString()}])}
-  const unread=notifications.filter(n=>!n.read).length
-  const invites=projects.filter(p=>(p.collaborators||[]).some(c=>c.email===rawUser.email&&c.status==='pending')).length
-const navItems=[
+const pushNotif=useCallback(msg=>{if(!notifsEnabled)return;setNotificationsLS(p=>[...p,{id:Date.now().toString(),message:msg,read:false,createdAt:new Date().toISOString()}])}, [notifsEnabled]) // eslint-disable-line
+  const unread=useMemo(()=>notifications.filter(n=>!n.read).length,[notifications])
+  const invites=useMemo(()=>projects.filter(p=>(p.collaborators||[]).some(c=>c.email===rawUser.email&&c.status==='pending')).length,[projects,rawUser.email])
+const navItems=useMemo(()=>[
     {id:'overview',label:'Overview',icon:IC.home},
     {id:'notifications',label:'Notifications',icon:IC.bell,badge:unread},
     {id:'projects',label:'My Projects',icon:IC.folder},
@@ -4693,7 +4690,7 @@ const navItems=[
     {id:'recommended',label:'Recommended',icon:IC.star},
     {id:'internships',label:'Internships',icon:IC.briefcase},
     // explore accessible via hero CTA; stats moved to profile dropdown
-  ]
+  ],[unread,invites])
   const handleLogout=()=>{
     setTheme(false)
     logoutUser()
@@ -4717,10 +4714,10 @@ const navItems=[
     return()=>document.removeEventListener('mousedown',handler)
   },[])
 
-  const recentThreads=(()=>{
+  const recentThreads=useMemo(()=>{
     const threads=LS.get('student_messages_'+rawUser.email,[])
     return threads.filter(t=>t.messages.length>0).slice(0,4)
-  })()
+  },[messagesSyncTick]) // eslint-disable-line
 
   const renderNav=()=>(
     <>
@@ -4777,7 +4774,6 @@ const navItems=[
   )
 
   const p={...profile,email:rawUser.email}
-  const { isDark: darkMode, setTheme } = useTheme()
 
 
   return (
