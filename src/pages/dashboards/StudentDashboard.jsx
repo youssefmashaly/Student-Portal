@@ -409,7 +409,7 @@ function AchievementsSection({ user, projects, notifications }) {
           <Icon d={IC.award} size={16} />
         </div>
       </div>
-      <div className="grid grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         {badgeDefs.map(b => {
           const c = colorMap[b.color] || colorMap.slate
           return (
@@ -774,7 +774,7 @@ function AcademicProgressSnapshot({ user, setTab }) {
         <button onClick={() => setTab('learning')} className="text-xs text-blue-600 dark:text-blue-400 hover:underline">View Hub</button>
       </div>
 
-      <div className="grid grid-cols-4 gap-2 mb-4">
+      <div className="grid grid-cols-2 gap-2 mb-4 sm:grid-cols-4">
         {stats.map(s => (
           <div key={s.label} className={`rounded-xl p-3 text-center ${s.bg}`}>
             <p className={`text-2xl font-bold ${s.color}`}>{s.value}</p>
@@ -973,14 +973,14 @@ function PersonalInsightsCard({ user, projects }) {
   const submittedThisWeek = Object.keys(submissions).filter(k => submissions[k] === 'submitted').length
 
   // Overall completion rate
-  const { completionRate } = useMemo(() => {
+  const { completionRate, submittedTotal } = useMemo(() => {
     let totalAssignments = 0, submittedTotal = 0
     LH_COURSES.forEach(c => {
       const d = buildCourseData(c.id)
       totalAssignments += d.assignments.length
       d.assignments.forEach(a => { if (submissions[a.id] === 'submitted' || a.status === 'submitted') submittedTotal++ })
     })
-    return { completionRate: totalAssignments > 0 ? Math.round((submittedTotal / totalAssignments) * 100) : 0 }
+    return { completionRate: totalAssignments > 0 ? Math.round((submittedTotal / totalAssignments) * 100) : 0, submittedTotal }
   }, [submissions])
 
   // Learning streak (days with recent views)
@@ -1813,7 +1813,7 @@ const [sortDate, setSortDate]=useState('newest')
               onToggle={l=>setForm(p=>({...p,languages:(p.languages||[]).includes(l)?(p.languages||[]).filter(x=>x!==l):[...(p.languages||[]),l]}))}/>
             <Sel label="Visibility" value={form.visibility} onChange={f('visibility')}><option value="public">Public</option><option value="private">Private</option></Sel>
           </div>
-          <div className="mt-5 flex gap-2 border-t border-slate-100 pt-4"><Btn onClick={saveProject}><Icon d={IC.check}/>Save Project</Btn><Btn variant="secondary" onClick={()=>setModal(null)}>Cancel</Btn></div>
+          <div className="mt-5 flex gap-2 border-t border-slate-100 dark:border-slate-700 pt-4"><Btn onClick={saveProject}><Icon d={IC.check}/>Save Project</Btn><Btn variant="secondary" onClick={()=>setModal(null)}>Cancel</Btn></div>
         </Modal>
       )}
       {modal==='tasks'&&selected&&<TasksModal project={projects.find(p=>p.id===selected.id)||selected} setProjects={setProjects} profile={profile} onClose={()=>setModal(null)}/>}
@@ -2616,7 +2616,7 @@ function InternshipsSection({ profile, pushNotif }) {
             <div className="rounded-lg bg-slate-50 p-3 text-sm text-slate-700"><p><strong>{selected.companyName||selected.companyEmail}</strong> · {selected.duration}</p>{selected.details&&<p className="text-slate-500 mt-1">{selected.details}</p>}</div>
             <Textarea label="Cover Letter *" value={coverLetter} onChange={e=>setCoverLetter(e.target.value)} placeholder="Why do you think you're a good fit for this role?" rows={5}/>
           </div>
-          <div className="mt-5 flex gap-2 border-t border-slate-100 pt-4"><Btn onClick={apply}><Icon d={IC.send} size={13}/>Submit Application</Btn><Btn variant="secondary" onClick={()=>setModal(null)}>Cancel</Btn></div>
+          <div className="mt-5 flex gap-2 border-t border-slate-100 dark:border-slate-700 pt-4"><Btn onClick={apply}><Icon d={IC.send} size={13}/>Submit Application</Btn><Btn variant="secondary" onClick={()=>setModal(null)}>Cancel</Btn></div>
         </Modal>
       )}
     </div>
@@ -4632,6 +4632,14 @@ export default function StudentDashboard() {
     if(!cu||cu.role!=='student'){navigate('/login');return}
     if(cu.isActive===false){logoutUser();navigate('/login')}
   },[navigate])
+  if(!rawUser.email) return (
+    <div className="flex h-screen items-center justify-center bg-slate-50 dark:bg-slate-900">
+      <div className="flex flex-col items-center gap-3">
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-blue-600 border-t-transparent"/>
+        <p className="text-sm text-slate-500 dark:text-slate-400">Loading ProjectHub…</p>
+      </div>
+    </div>
+  )
   seedAcademicPlatformDemoData()
   const [tab, setTab]=useState('overview')
   const [sidebarOpen, setSidebar]=useState(false)
@@ -4803,8 +4811,8 @@ const navItems=useMemo(()=>[
           <div className="flex items-center gap-3">
 
             {/* Hamburger — mobile only */}
-            <button onClick={()=>setSidebar(true)}
-              className="rounded-lg border border-slate-200 p-1.5 text-slate-500 hover:bg-slate-100 md:hidden">
+            <button onClick={()=>setSidebar(true)} aria-label="Open navigation menu"
+            className="rounded-lg border border-slate-200 dark:border-slate-700 p-1.5 text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 md:hidden">
               <Icon d={IC.menu} size={18}/>
             </button>
 
@@ -5072,7 +5080,7 @@ const navItems=useMemo(()=>[
                       <Icon d={IC.chart} size={14}/>Statistics
                     </button>
                   </div>
-                  <div className="border-t border-slate-100 p-1.5">
+                  <div className="border-t border-slate-100 dark:border-slate-700 p-1.5">
                     <button onClick={handleLogout}
                       className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors">
                       <Icon d={IC.logout} size={14}/>Sign out

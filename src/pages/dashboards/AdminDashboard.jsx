@@ -197,7 +197,7 @@ function SettingsTab({ isDark, setTheme, user }) {
       <div className="flex gap-6">
         <div className="w-44 shrink-0 space-y-0.5">
           {tabs.map(t => (
-            <button key={t.id} onClick={() => setSettTab(t.id)} className={`flex w-full items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm font-medium transition-all ${settTab===t.id?'bg-blue-700 text-white shadow-sm':'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-blue-700'}`}>
+            <button key={t.id} onClick={() => setSettTab(t.id)} className={`flex w-full items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm font-medium transition-all ${settTab===t.id?'bg-blue-700 text-white shadow-sm':'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-blue-700 dark:hover:text-blue-400'}`}>
               <Icon d={t.icon} size={14}/>{t.label}
             </button>
           ))}
@@ -359,6 +359,14 @@ export default function AdminDashboard() {
   useEffect(() => { saveAdminState(adminState) }, [adminState])
 
   const currentUser = getCurrentUser()
+  if (!currentUser?.email) return (
+    <div className="flex h-screen items-center justify-center bg-slate-50 dark:bg-slate-900">
+      <div className="flex flex-col items-center gap-3">
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-blue-600 border-t-transparent"/>
+        <p className="text-sm text-slate-500 dark:text-slate-400">Loading ProjectHub…</p>
+      </div>
+    </div>
+  )
   const instructors = useMemo(() => buildInstructors(platformUsers), [platformUsers])
   const employers = useMemo(() => buildEmployers(platformUsers, adminState.employerStatuses), [platformUsers, adminState.employerStatuses])
   const portfolios = useMemo(() => buildPortfolios(platformUsers, projects), [platformUsers, projects])
@@ -535,7 +543,7 @@ export default function AdminDashboard() {
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
         <header className="shrink-0 z-30 flex items-center justify-between gap-3 border-b border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-4 py-3">
           <div className="flex items-center gap-3">
-            <button onClick={()=>setSidebar(true)} className="rounded-lg border border-slate-200 dark:border-slate-700 p-1.5 text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 md:hidden"><Icon d={IC.menu} size={18}/></button>
+            <button onClick={()=>setSidebar(true)} aria-label="Open navigation menu" className="rounded-lg border border-slate-200 dark:border-slate-700 p-1.5 text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 md:hidden"><Icon d={IC.menu} size={18}/></button>
             <button onClick={()=>navigate('/')} className="flex items-center gap-2 rounded-lg px-2 py-1 hover:opacity-80 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all">
               <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-blue-700 shadow-sm"><Icon d={IC.shield} size={14}/></div>
               <div className="flex flex-col leading-none">

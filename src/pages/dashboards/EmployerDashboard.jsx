@@ -84,6 +84,14 @@ function EmployerDashboard() {
     if (!cu || cu.role !== 'employer') { navigate('/login'); return }
     if (cu.isActive === false) { logoutUser(); navigate('/login') }
   }, [navigate])
+  if (!user.email) return (
+    <div className="flex h-screen items-center justify-center bg-slate-50 dark:bg-slate-900">
+      <div className="flex flex-col items-center gap-3">
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-blue-600 border-t-transparent"/>
+        <p className="text-sm text-slate-500 dark:text-slate-400">Loading ProjectHub…</p>
+      </div>
+    </div>
+  )
   const empId = (user.email || '').toLowerCase()
 
   const storageKeys = {
@@ -582,7 +590,7 @@ function EmployerDashboard() {
         {/* Top Header */}
         <header className="shrink-0 z-30 flex items-center justify-between gap-3 border-b border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-4 py-3">
           <div className="flex items-center gap-3">
-            <button onClick={() => setSidebar(true)} className="rounded-lg border border-slate-200 dark:border-slate-700 p-1.5 text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 md:hidden">
+            <button onClick={() => setSidebar(true)} aria-label="Open navigation menu" className="rounded-lg border border-slate-200 dark:border-slate-700 p-1.5 text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 md:hidden">
               <Icon d={IC.menu} size={18} />
             </button>
             <button onClick={() => navigate('/')} className="flex items-center gap-2 rounded-lg px-2 py-1 hover:opacity-80 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all group">

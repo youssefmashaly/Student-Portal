@@ -2070,7 +2070,7 @@ function SettingsSection({ rawUser, initialTab = 'appearance', settingsTab }) {
         <div className="w-44 shrink-0 space-y-0.5">
           {settingsTabs.map(t => (
             <button key={t.id} onClick={() => setTab(t.id)}
-              className={`flex w-full items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm font-medium transition-all ${tab === t.id ? 'bg-blue-700 text-white shadow-sm' : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-blue-700'}`}>
+              className={`flex w-full items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm font-medium transition-all ${tab === t.id ? 'bg-blue-700 text-white shadow-sm' : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-blue-700 dark:hover:text-blue-400'}`}>
               <Icon d={t.icon} size={14} />{t.label}
             </button>
           ))}
@@ -2161,6 +2161,14 @@ export default function InstructorDashboard() {
     if (!cu || cu.role !== 'instructor') { navigate('/login'); return }
     if (cu.isActive === false) { logoutUser(); navigate('/login') }
   }, [navigate])
+  if (!rawUser.email) return (
+    <div className="flex h-screen items-center justify-center bg-slate-50 dark:bg-slate-900">
+      <div className="flex flex-col items-center gap-3">
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-blue-600 border-t-transparent"/>
+        <p className="text-sm text-slate-500 dark:text-slate-400">Loading ProjectHub…</p>
+      </div>
+    </div>
+  )
   seedAcademicPlatformDemoData({ instructorEmail: rawUser.email })
 
   const [tab, setTab] = useState('overview')
@@ -2335,7 +2343,7 @@ export default function InstructorDashboard() {
         {/* Top Header */}
         <header className="shrink-0 z-30 flex items-center justify-between gap-3 border-b border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 backdrop-blur-sm px-4 py-3">
           <div className="flex items-center gap-3">
-            <button onClick={() => setSidebar(true)} className="rounded-lg border border-slate-200 dark:border-slate-700 p-1.5 text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 md:hidden">
+            <button onClick={() => setSidebar(true)} aria-label="Open navigation menu" className="rounded-lg border border-slate-200 dark:border-slate-700 p-1.5 text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 md:hidden">
               <Icon d={IC.menu} size={18} />
             </button>
             <button onClick={() => navigate('/')} className="flex items-center gap-2 rounded-lg px-2 py-1 transition-all duration-150 hover:opacity-80 hover:bg-slate-50 dark:hover:bg-slate-800 group">
